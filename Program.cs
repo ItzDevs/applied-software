@@ -11,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 var serviceSettings = new Settings();
 builder.Configuration.GetSection("Settings").Bind(serviceSettings);
+var jwtSettings = new FirebaseJwtSettings();
+builder.Configuration.GetSection("Jwt").Bind(jwtSettings);
+
 
 var connStringBuilder = new ConnectionStringBuilder();
 if (connStringBuilder.IsValid(out var connString))
@@ -18,15 +21,15 @@ if (connStringBuilder.IsValid(out var connString))
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    options.Authority = "";
+    options.Authority = jwtSettings.Authority;
     options.TokenValidationParameters = new()
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "",
-        ValidAudience = ""
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience
     };
 });
 

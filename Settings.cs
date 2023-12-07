@@ -11,6 +11,14 @@ public class FirebaseSettings
     public double UserPollIntervalInMinutes { get; set; } = 1;
 }
 
+public class FirebaseJwtSettings
+{
+    public string? Authority { get; set; }
+    public string? Issuer { get; set; }
+    public string? Audience { get; set; }
+}
+
+
 /// <summary>
 /// A class which defines, and combines the settings to build a connection string from environment variables or being defined in Config.
 /// </summary>
