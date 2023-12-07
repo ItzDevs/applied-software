@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${HTTP_API_PORT:?Missing HTTP_API_PORT}:8080
+    depends_on:
+      - pg
+    restart: on-failure
+#    volumes:
+#      - ./docker/development/CDN:/CDN
+#      - ./docker/development/api:/settings
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - POSTGRES_HOST=pg
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE:?Missing POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USER:?Missing POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD}
+      - POSTGRES_INCLUDE_ERROR_DETAILS=${POSTGRES_INCLUDE_ERROR_DETAILS:?Missing POSTGRES_INCLUDE_ERROR_DETAILS}
+      - GOOGLE_APPLICATION_CREDENTIALS=firebase-admin.json
+
+  pg:
+    image: postgres:16.1-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?Missing POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+    ports: 
+      - ${POSTGRES_PORT:?Missing POSTGRES_PORT}:5432
+    volumes:
+      - ./docker/development/postgres/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:?Missing POSTGRES_DATABASE}
+      POSTGRES_USER: ${POSTGRES_USER:?Missing POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD}

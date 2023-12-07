@@ -6,3 +6,7 @@ riderModule.iml
 .idea
 # Remove firebase settings from git.
 firebase*.json
+
+[aA]ppsettings.*.json
+
+.env

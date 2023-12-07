@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AppliedSoftware.Models.Response.Auth;
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
@@ -14,8 +15,7 @@ public class Authentication(
     
     public async Task StartAsync(
         CancellationToken ct = default)
-    {   // Config loaded from GOOGLE_APPLICATION_CREDENTIALS environment variable.
-        FirebaseApp.Create();
+    {   
 
         _auth = FirebaseAuth.DefaultInstance;
         
@@ -25,34 +25,21 @@ public class Authentication(
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="token"></param>
+    /// <param name="user"></param>
     /// <returns></returns>
     /// <exception cref="Exception">Throws </exception>
-    public async Task<AuthenticationResult> IsUserAuthenticated(string token)
-    {
-        if(_auth is null)
-            throw new Exception("Firebase Auth is not initialized");
-
-        try
-        {
-            var decoded
-                = await _auth.VerifyIdTokenAsync(
-                    token, 
-                    checkRevoked: true);
-
-            return new(true, decoded.Uid);
-        }
-        catch (FirebaseAuthException)
-        {
-            return AuthenticationResult.Invalid;
-        }
-       
-    }
+    public string? ExtractUserId(ClaimsPrincipal user)
+        => user.FindFirst("user_id")?.Value;
 }
 
 public interface IAuthentication : IWorkerService
 {
-    Task<AuthenticationResult> IsUserAuthenticated(string token);
+    /// <summary>
+    /// Extracts the user ID from a <see cref="ClaimsPrincipal"/>.
+    /// </summary>
+    /// <param name="user"></param>
+    /// <returns></returns>
+    string? ExtractUserId(ClaimsPrincipal user);
 }
 
 public interface IWorkerService

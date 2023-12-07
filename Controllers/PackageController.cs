@@ -13,11 +13,11 @@ public class PackageController : ControllerBase
     /// <summary>
     /// Gets all packages that a user has authorised access to.
     /// </summary>
-    /// <param name="userToken"></param>
     /// <returns></returns>
     [HttpGet]
     public async Task<IActionResult> GetPackages()
     {
+        
         return Ok();
     }
 }

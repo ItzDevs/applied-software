@@ -2,29 +2,41 @@
 using AppliedSoftware;
 using AppliedSoftware.Extensions;
 using AppliedSoftware.Workers;
+using AppliedSoftware.Workers.EFCore;
+using FirebaseAdmin;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var firebaseSettings = new FirebaseSettings();
-builder.Configuration.GetSection("Jwt").Bind(firebaseSettings);
+var serviceSettings = new Settings();
+builder.Configuration.GetSection("Settings").Bind(serviceSettings);
+
+var connStringBuilder = new ConnectionStringBuilder();
+if (connStringBuilder.IsValid(out var connString))
+    serviceSettings.ConnectionString = connString;
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    options.Authority = "https://securetoken.google.com/pageturner-bookstore";
+    options.Authority = "";
     options.TokenValidationParameters = new()
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "https://securetoken.google.com/pageturner-bookstore",
-        ValidAudience = "pageturner-bookstore"
+        ValidIssuer = "",
+        ValidAudience = ""
     };
 });
 
 builder.Services.AddSingleton<IAuthentication, Authentication>();
+
+builder.Services.AddNpgsql<ExtranetContext>(serviceSettings.ConnectionString, 
+    opt =>
+    {
+        opt.MigrationsAssembly(typeof(ExtranetContext).Assembly.FullName);
+    });
 
 builder.Services.ConfigureApiVersioning();
 
@@ -61,5 +73,10 @@ app.UseHttpsRedirection();
 
 
 app.MapControllers();
+
+app.EnsureMigrated();
+
+// Config loaded from GOOGLE_APPLICATION_CREDENTIALS environment variable.
+FirebaseApp.Create();
 
 app.Run();

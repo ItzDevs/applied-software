@@ -24,7 +24,7 @@ public static class HostBuilderExtensions
     public static void EnsureMigrated(this WebApplication host)
     {
         using var scope = host.Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        using var ctx = scope.ServiceProvider.GetRequiredService<IntranetContext>();
+        using var ctx = scope.ServiceProvider.GetRequiredService<ExtranetContext>();
         
         ctx.Database.Migrate();
     }
