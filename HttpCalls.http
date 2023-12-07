@@ -1,0 +1,9 @@
+@AppliedSoftware_HostAddress = 
+@JWT = 
+
+
+GET {{AppliedSoftware_HostAddress}}/api/v1/packages
+Accept: application/json
+Authorization: Bearer {{JWT}}
+
+###
