@@ -14,6 +14,7 @@ public class UserDto
     {
         Uid = userRecord.Uid;
         DisplayName = userRecord.DisplayName;
+        FirebaseDisplayName = userRecord.DisplayName;
         Disabled = userRecord.Disabled;
         CreatedAtUtc = userRecord.UserMetaData.CreationTimestamp ?? DateTime.UtcNow;
         UpdatedAtUtc = DateTime.UtcNow;
@@ -28,6 +29,8 @@ public class UserDto
     /// Gets the user's display name, if available. Otherwise null.
     /// </summary>
     public string DisplayName { get; set; } = null!;
+
+    public string? FirebaseDisplayName { get; set; } = null!;
 
     /// <summary>
     /// Gets a value indicating whether the user account is disabled or not.

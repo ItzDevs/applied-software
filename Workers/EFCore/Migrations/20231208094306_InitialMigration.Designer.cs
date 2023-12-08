@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231207231119_InitialMigration")]
+    [Migration("20231208094306_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -205,6 +205,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirebaseDisplayName")
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAtUtc")

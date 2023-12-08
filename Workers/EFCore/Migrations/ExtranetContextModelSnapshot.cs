@@ -204,6 +204,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("FirebaseDisplayName")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 

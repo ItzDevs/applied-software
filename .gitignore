@@ -10,3 +10,5 @@ firebase*.json
 [aA]ppsettings.*.json
 
 .env
+
+http.http

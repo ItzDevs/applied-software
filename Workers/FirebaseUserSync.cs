@@ -49,14 +49,13 @@ public sealed class FirebaseUserSync(
                 
                 await foreach (var usersPage in usersPagedEnumerable)
                 {
-                    var users = usersPage.Users.ToUserDtos().ToList();
-                    logger.LogInformation($"Saving {users.Count} users in current page");
-                    
-                    foreach (var user in users)
-                    {   // TODO: Implement sync; also need to handle the case where the user already exists and has changes upstream as well as local.
-                        context.Users.Add(user);
-                        await context.SaveChangesAsync(ct);
-                    }
+                    // logger.LogInformation($"Saving {users.Count} users in current page");
+                    //
+                    // foreach (var user in users)
+                    // {   // TODO: Implement sync; also need to handle the case where the user already exists and has changes upstream as well as local.
+                    //     context.Users.Add(user);
+                    //     await context.SaveChangesAsync(ct);
+                    // }
                 }
 
             }
