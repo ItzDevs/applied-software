@@ -167,14 +167,6 @@ public sealed class FirebaseUserSync(
                     }
 
                     await context.SaveChangesAsync(_cancellationToken);
-                    
-                    // logger.LogInformation($"Saving {users.Count} users in current page");
-                    //
-                    // foreach (var user in users)
-                    // {   // TODO: Implement sync; also need to handle the case where the user already exists and has changes upstream as well as local.
-                    //     context.Users.Add(user);
-                    //     await context.SaveChangesAsync(ct);
-                    // }
                 }
 
             }
