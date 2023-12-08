@@ -19,6 +19,8 @@ var connStringBuilder = new ConnectionStringBuilder();
 if (connStringBuilder.IsValid(out var connString))
     serviceSettings.ConnectionString = connString;
 
+builder.Services.AddSingleton(serviceSettings);
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
     options.Authority = jwtSettings.Authority;
@@ -34,6 +36,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 
 builder.Services.AddSingleton<IAuthentication, Authentication>();
+builder.Services.AddSingleton<IFirebaseUserSync, FirebaseUserSync>();
 
 builder.Services.AddNpgsql<ExtranetContext>(serviceSettings.ConnectionString, 
     opt =>
@@ -79,7 +82,12 @@ app.MapControllers();
 
 app.EnsureMigrated();
 
+
 // Config loaded from GOOGLE_APPLICATION_CREDENTIALS environment variable.
 FirebaseApp.Create();
+
+var firebaseSyncService = app.Services.GetRequiredService<IFirebaseUserSync>();
+await firebaseSyncService.StartAsync();
+
 
 app.Run();

@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231208094306_InitialMigration")]
+    [Migration("20231208121017_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -206,6 +206,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("FirebaseDisabled")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FirebaseDisplayName")
                         .HasColumnType("text");

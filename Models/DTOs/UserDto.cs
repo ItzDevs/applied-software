@@ -13,9 +13,10 @@ public class UserDto
     internal UserDto(UserRecord userRecord)
     {
         Uid = userRecord.Uid;
-        DisplayName = userRecord.DisplayName;
-        FirebaseDisplayName = userRecord.DisplayName;
+        DisplayName = userRecord.DisplayName ?? userRecord.Email;
+        FirebaseDisplayName = userRecord.DisplayName ?? userRecord.Email;
         Disabled = userRecord.Disabled;
+        FirebaseDisabled = userRecord.Disabled;
         CreatedAtUtc = userRecord.UserMetaData.CreationTimestamp ?? DateTime.UtcNow;
         UpdatedAtUtc = DateTime.UtcNow;
     }
@@ -30,12 +31,17 @@ public class UserDto
     /// </summary>
     public string DisplayName { get; set; } = null!;
 
+    /// <summary>
+    /// The firebase display name; this is used to track changes to the display name upstream.
+    /// </summary>
     public string? FirebaseDisplayName { get; set; } = null!;
 
     /// <summary>
     /// Gets a value indicating whether the user account is disabled or not.
     /// </summary>
     public bool Disabled { get; set; } = true;
+    
+    public bool FirebaseDisabled { get; set; } = true;
 
     /// <summary>
     /// If the user is deleted (soft-deleted).

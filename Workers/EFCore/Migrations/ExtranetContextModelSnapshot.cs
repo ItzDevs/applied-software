@@ -204,6 +204,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("FirebaseDisabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("FirebaseDisplayName")
                         .HasColumnType("text");
 

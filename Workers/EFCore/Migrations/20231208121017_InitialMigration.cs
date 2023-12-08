@@ -56,6 +56,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     DisplayName = table.Column<string>(type: "text", nullable: false),
                     FirebaseDisplayName = table.Column<string>(type: "text", nullable: true),
                     Disabled = table.Column<bool>(type: "boolean", nullable: false),
+                    FirebaseDisabled = table.Column<bool>(type: "boolean", nullable: false),
                     Deleted = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
