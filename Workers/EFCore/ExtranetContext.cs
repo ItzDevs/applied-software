@@ -36,6 +36,8 @@ public partial class ExtranetContext : DbContext
     
     public virtual DbSet<UserGroupDto> UserGroups { get; set; } = null!;
     
+    public virtual DbSet<GlobalPermissionDto> GlobalPermissions { get; set; } = null!;
+    
     public virtual DbSet<UserPermissionOverrideDto> UserPermissionOverrides { get; set; } = null!;
     
     public virtual DbSet<UserGroupPermissionOverrideDto> UserGroupPermissionOverrides { get; set; } = null!;
@@ -78,11 +80,6 @@ public partial class ExtranetContext : DbContext
             entity.HasKey(e => e.PackageActionId).HasName("package_action__pk");
             
             entity.ToTable("package_action");
-            
-            // entity.HasOne(e => e.Package)
-            //         .WithMany(p => p.Actions)
-            //         .HasForeignKey(e => e.PackageId)
-            //       .HasConstraintName("package_action_package__fk");
         });
 
         modelBuilder.Entity<EmailPackageActionDto>(entity =>
@@ -134,6 +131,15 @@ public partial class ExtranetContext : DbContext
             entity.HasKey(e => e.UserGroupOverrideId).HasName("user_group_permission_override__pk");
             
             entity.ToTable("user_group_permission_override");
+        });
+
+        modelBuilder.Entity<GlobalPermissionDto>(entity =>
+        {
+            entity.HasKey(e => e.GlobalPermissionId).HasName("global_permission__pk");
+
+            entity.ToTable("global_permission");
+
+            entity.HasIndex(e => e.UserId, "global_permission_uid__indx");
         });
         
         OnModelCreatingPartial(modelBuilder);

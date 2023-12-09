@@ -1,5 +1,4 @@
 using AppliedSoftware.Extensions;
-using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Workers.EFCore;
 using FirebaseAdmin.Auth;
 using Microsoft.AspNetCore.Authentication;
@@ -38,7 +37,6 @@ public sealed class FirebaseUserSync(
         while (!_cancellationToken.IsCancellationRequested)
         {
             logger.LogInformation("Running user sync");
-
             var context = serviceProvider.CreateScope()
                             .ServiceProvider
                             .GetRequiredService<ExtranetContext>();
@@ -73,23 +71,23 @@ public sealed class FirebaseUserSync(
                         var currentUserFirebase = currentUsers.FirstOrDefault(y => y.Uid == mergedUser.Uid);
 
                         #region Display Name
-
+                        // Checking the local firebase display name to the remote "upstream" display name, 
+                        // using the email as a fallback if there is no display name (the same behaviour as saving a user with no set display name).
                         var trackedUpstreamChangeDisplayName =
                             !mergedUser.FirebaseDisplayName?.Equals(currentUserFirebase?.DisplayName ??
                                                                     currentUserFirebase?.Email);
+                        // Now we need to check if the local display name has been set independently of the firebase display name
+                        // which needs to be done prior to any potential modifications to the names to ensure this is correct.
                         var locallyModifiedDisplayName = !mergedUser.DisplayName.Equals(mergedUser.FirebaseDisplayName);
-
+                        // Now for the actual modifications to users with a changed display name.
                         if (trackedUpstreamChangeDisplayName == true)
-                        {
-                            if (mergedUser.FirebaseDisplayName?.Equals(currentUserFirebase?.DisplayName) == false)
-                            {
-                                logger.LogInformation($"Upstream display name changed for user {mergedUser.Uid}");
-                                mergedUser.FirebaseDisplayName = currentUserFirebase?.DisplayName ?? 
-                                                                 mergedUser.FirebaseDisplayName; // If display name above is null, use their old username.
-                                mergedUser.UpdatedAtUtc = DateTime.UtcNow;
-                            }
+                        {   // Updating the firebase display name property.
+                            logger.LogInformation($"Upstream display name changed for user {mergedUser.Uid}");
+                            mergedUser.FirebaseDisplayName = currentUserFirebase?.DisplayName ?? 
+                                                             mergedUser.FirebaseDisplayName; // If display name above is null, use their old username.
+                            mergedUser.UpdatedAtUtc = DateTime.UtcNow;
                         
-                            // The user has a locally modified display name, any updates to the name should not be applied.
+                            // The user has a locally modified display name, any updates to the DisplayName property should not be applied.
                             if (locallyModifiedDisplayName)
                             {
                                 logger.LogInformation("Local display name was overriden, skipping updating property");
@@ -149,11 +147,9 @@ public sealed class FirebaseUserSync(
                     }
                     
                     // Adding new users
-
                     var newUsersInPage =
                         currentUsers.Where(cu => !previouslyMergedUsers.Select(x => x.Uid).Contains(cu.Uid)).ToList();
                     await context.Users.AddRangeAsync(newUsersInPage.ToUserDtos(), _cancellationToken);
-
                     
                     // Soft-deleting deleted users.
                     var deletedUsersInPage = 
@@ -165,21 +161,18 @@ public sealed class FirebaseUserSync(
                         deletedUser.Deleted = true;
                         deletedUser.UpdatedAtUtc = DateTime.UtcNow;
                     }
-
                     await context.SaveChangesAsync(_cancellationToken);
                 }
-
             }
             catch (AuthenticationFailureException ex)
             {
-                logger.LogError(ex, "Firebase authenticator has not been initialized");
+                logger.LogError(ex, "Firebase authenticator has not been initialised");
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error syncing users");
                 _failureCount++;
             }
-
             await Task.Delay(CalculateNextRun(), _cancellationToken);
         }
     }
@@ -190,9 +183,4 @@ public sealed class FirebaseUserSync(
         var nextTimeRun = timeOfDay.Add(TimeSpan.FromMinutes(config.FirebaseSettings.UserPollIntervalInMinutes));
         return nextTimeRun - timeOfDay;
     }
-}
-
-public interface IFirebaseUserSync : IWorkerService
-{
-    
 }

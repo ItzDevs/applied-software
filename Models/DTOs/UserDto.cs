@@ -59,6 +59,11 @@ public class UserDto
     public DateTime UpdatedAtUtc { get; set; }
     
     /// <summary>
+    /// The navigation property for the user's global permission.
+    /// </summary>
+    public virtual GlobalPermissionDto GlobalPermission { get; set; } = null!;
+    
+    /// <summary>
     /// The navigation property for the packages the user is an administrator of.
     /// </summary>
     public virtual ICollection<PackageDto> PackageAdministrator { get; set; } = new List<PackageDto>();

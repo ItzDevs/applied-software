@@ -27,7 +27,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Models\Request\" />
       <Folder Include="Workers\EFCore\Migrations\" />
     </ItemGroup>
 

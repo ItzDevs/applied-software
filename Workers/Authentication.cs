@@ -28,8 +28,8 @@ public class Authentication(
     /// <param name="user"></param>
     /// <returns></returns>
     /// <exception cref="Exception">Throws </exception>
-    public string? ExtractUserId(ClaimsPrincipal user)
-        => user.FindFirst("user_id")?.Value;
+    public string? ExtractUserId(ClaimsPrincipal? user)
+        => user?.FindFirst("user_id")?.Value;
 }
 
 public interface IAuthentication : IWorkerService
@@ -39,7 +39,7 @@ public interface IAuthentication : IWorkerService
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
-    string? ExtractUserId(ClaimsPrincipal user);
+    string? ExtractUserId(ClaimsPrincipal? user);
 }
 
 public interface IWorkerService

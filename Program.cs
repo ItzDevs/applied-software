@@ -34,9 +34,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidAudience = jwtSettings.Audience
     };
 });
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IAuthentication, Authentication>();
 builder.Services.AddSingleton<IFirebaseUserSync, FirebaseUserSync>();
+builder.Services.AddScoped<IRepository, Repository>();
 
 builder.Services.AddNpgsql<ExtranetContext>(serviceSettings.ConnectionString, 
     opt =>

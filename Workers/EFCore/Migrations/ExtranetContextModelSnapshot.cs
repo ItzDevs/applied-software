@@ -94,6 +94,38 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.ToTable("email_package_action", (string)null);
                 });
 
+            modelBuilder.Entity("AppliedSoftware.Models.DTOs.GlobalPermissionDto", b =>
+                {
+                    b.Property<long>("GlobalPermissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("GlobalPermissionId"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GrantedGlobalPermission")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("GlobalPermissionId")
+                        .HasName("global_permission__pk");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "global_permission_uid__indx");
+
+                    b.ToTable("global_permission", (string)null);
+                });
+
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.PackageActionDto", b =>
                 {
                     b.Property<long>("PackageActionId")
@@ -419,6 +451,17 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Navigation("EmailPackageActionDto");
                 });
 
+            modelBuilder.Entity("AppliedSoftware.Models.DTOs.GlobalPermissionDto", b =>
+                {
+                    b.HasOne("AppliedSoftware.Models.DTOs.UserDto", "User")
+                        .WithOne("GlobalPermission")
+                        .HasForeignKey("AppliedSoftware.Models.DTOs.GlobalPermissionDto", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.PackageActionDto", b =>
                 {
                     b.HasOne("AppliedSoftware.Models.DTOs.PackageDto", "Package")
@@ -571,6 +614,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.UserDto", b =>
                 {
+                    b.Navigation("GlobalPermission")
+                        .IsRequired();
+
                     b.Navigation("UserPermissionOverrides");
                 });
 #pragma warning restore 612, 618

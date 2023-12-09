@@ -158,6 +158,28 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "global_permission",
+                columns: table => new
+                {
+                    GlobalPermissionId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    GrantedGlobalPermission = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("global_permission__pk", x => x.GlobalPermissionId);
+                    table.ForeignKey(
+                        name: "FK_global_permission_user_UserId",
+                        column: x => x.UserId,
+                        principalTable: "user",
+                        principalColumn: "Uid",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "user_permission_override",
                 columns: table => new
                 {
@@ -337,6 +359,17 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 .Annotation("Npgsql:IndexMethod", "GIN");
 
             migrationBuilder.CreateIndex(
+                name: "IX_global_permission_UserId",
+                table: "global_permission",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "global_permission_uid__indx",
+                table: "global_permission",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "package_name_unq__indx",
                 table: "package",
                 column: "Name",
@@ -412,6 +445,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
             migrationBuilder.DropTable(
                 name: "email_attachment");
+
+            migrationBuilder.DropTable(
+                name: "global_permission");
 
             migrationBuilder.DropTable(
                 name: "user_group_permission_override");

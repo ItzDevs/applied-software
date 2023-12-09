@@ -1,9 +1,16 @@
+using System.Text.Json;
+
 namespace AppliedSoftware;
 
 public class Settings
 {
     public string ConnectionString { get; set; } = string.Empty;
     public FirebaseSettings FirebaseSettings { get; set; } = new();
+    
+    internal static readonly JsonSerializerOptions DefaultSerializerOptions = new()
+    {
+        WriteIndented = true
+    };
 }
 
 public class FirebaseSettings
