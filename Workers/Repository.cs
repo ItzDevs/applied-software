@@ -19,6 +19,7 @@ public class Repository(
         string userId)
     {
         var user = await context.GlobalPermissions
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.UserId == userId);
 
         return user is not null
@@ -28,6 +29,12 @@ public class Repository(
                     new[] { "No user global permissions found." }));
     }
 
+    /// <summary>
+    /// A helper method to validate that a user has a global permission entry, and pass back the permission flags
+    /// (or an error) that can be returned to the user.
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <returns></returns>
     private async Task<StatusContainer<GlobalPermission>> ValidateUser(string? userId)
     {
         if (string.IsNullOrWhiteSpace(userId))
