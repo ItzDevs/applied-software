@@ -23,9 +23,29 @@ public enum eErrorCode
     InvalidFilter = 103,
 
     /// <summary>
+    /// A conflict in data.
+    /// </summary>
+    Conflict = 301,
+    
+    /// <summary>
+    /// An error occurred whilst validating.
+    /// </summary>
+    ValidationError = 399,
+    
+    /// <summary>
+    /// Bad Request.
+    /// </summary>
+    BadRequest = 400,
+    
+    /// <summary>
     /// The unauthorised error code.
     /// </summary>
     Unauthorised = 401,
+    
+    /// <summary>
+    /// Forbidden to access the requested resource.
+    /// </summary>
+    Forbidden = 403,
     
     /// <summary>
     /// Not Found.

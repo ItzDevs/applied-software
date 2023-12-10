@@ -53,4 +53,12 @@ public readonly struct CodeMessageResponse
     public static CodeMessageResponse Unauthorised 
         => new(eErrorCode.Unauthorised, new[] 
             { "This action is unauthorized."});
+
+    public static CodeMessageResponse ForbiddenAction 
+        => new(eErrorCode.Forbidden, new[] 
+            { "You do not have the required permissions to perform this action." });
+    
+    public static CodeMessageResponse ForbiddenAccess
+        => new(eErrorCode.Forbidden, new[]
+            {"You do not have the required permissions to access this resource."});
 }

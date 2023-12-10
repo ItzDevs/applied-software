@@ -8,11 +8,11 @@ public class GlobalPermissionDto
     /// The Global Permission Id.
     /// </summary>
     public long GlobalPermissionId { get; set; }
-    
+
     /// <summary>
     /// The user id.
     /// </summary>
-    public string UserId { get; set; }
+    public string UserId { get; set; } = null!;
     
     /// <summary>
     /// The global permission.

@@ -1,3 +1,5 @@
+using AppliedSoftware.Models.Request.Teams;
+using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,7 +12,8 @@ namespace AppliedSoftware.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/management")]
 [Authorize]
-public class UserTeamController : ControllerBase
+public class UserTeamController(
+    IRepository repository) : ControllerBase
 {
     [HttpGet]
     [AllowAnonymous]
@@ -25,10 +28,7 @@ public class UserTeamController : ControllerBase
     /// Gets all packages that a user has authorised access to.
     /// </summary>
     /// <returns></returns>
-    [HttpPost("team")]
-    public async Task<IActionResult> CreateTeam()
-    {
-        
-        return Ok();
-    }
+    [HttpPost("teams")]
+    public async Task<IActionResult> CreateTeam([FromBody] CreateTeam newTeam)
+        => (await repository.CreateTeam(newTeam)).ToResponse();
 }

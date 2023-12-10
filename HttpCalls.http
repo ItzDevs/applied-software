@@ -7,3 +7,14 @@ Accept: application/json
 Authorization: Bearer {{JWT}}
 
 ###
+POST {{AppliedSoftware_HostAddress}}/api/v1/management/teams
+Accept: application/json
+Authorization: Bearer {{JWT}}
+Content-Type: application/json
+
+{
+  "name": "test",
+  "description": "test",
+  "defaultAllowedPermissions": 1,
+  "defaultDisallowedPermissions": 0
+}
