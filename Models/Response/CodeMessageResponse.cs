@@ -13,7 +13,7 @@ public readonly struct CodeMessageResponse
     /// </summary>
     /// <param name="code">Optional Status Code</param>
     /// <param name="messages">Optional Status Message.</param>
-    public CodeMessageResponse(int? code = null, string[]? messages = null)
+    public CodeMessageResponse(int? code = null, IEnumerable<string>? messages = null)
     {
         Code = code;
         Messages = messages;
@@ -24,7 +24,7 @@ public readonly struct CodeMessageResponse
     /// </summary>
     /// <param name="code">Optional Status Code</param>
     /// <param name="messages">Optional Status Message.</param>
-    public CodeMessageResponse(eErrorCode? code = null, string[]? messages = null)
+    public CodeMessageResponse(eErrorCode? code = null, IEnumerable<string>? messages = null)
     {
         Code = (int?)code;
         Messages = messages;
@@ -42,7 +42,7 @@ public readonly struct CodeMessageResponse
     /// </summary>
     [JsonPropertyName("statusMessage")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public string[]? Messages { get; }
+    public IEnumerable<string>? Messages { get; }
 
     /// <inheritdoc />
     public override string ToString()

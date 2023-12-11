@@ -11,9 +11,6 @@ public sealed class FirebaseUserSync(
     Settings config, 
     ILogger<FirebaseUserSync> logger) : IFirebaseUserSync
 {
-    // keeping track of how many times the sync has failed.
-    private int _failureCount = 0;
-
     private CancellationToken _cancellationToken;
     
     private FirebaseAuth? _auth;
@@ -32,7 +29,6 @@ public sealed class FirebaseUserSync(
     private async Task SyncUsers()
     {
         logger.LogInformation("Starting user sync task");
-        
         
         while (!_cancellationToken.IsCancellationRequested)
         {
@@ -89,9 +85,7 @@ public sealed class FirebaseUserSync(
                         
                             // The user has a locally modified display name, any updates to the DisplayName property should not be applied.
                             if (locallyModifiedDisplayName)
-                            {
                                 logger.LogInformation("Local display name was overriden, skipping updating property");
-                            }
                             else
                             {
                                 logger.LogInformation($"Upstream display name changed for user {mergedUser.Uid}; syncing");
@@ -125,9 +119,7 @@ public sealed class FirebaseUserSync(
 
                             // The user has a locally modified disabled status, any updates to the status should not be applied.
                             if (locallyModifiedDisabledStatus)
-                            {
                                 logger.LogInformation("Disabled status was overridden, skipping updating property");
-                            }
                             else
                             {
                                 logger.LogInformation("Syncing the upstream disabled status to the local status");
@@ -171,7 +163,6 @@ public sealed class FirebaseUserSync(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error syncing users");
-                _failureCount++;
             }
             await Task.Delay(CalculateNextRun(), _cancellationToken);
         }

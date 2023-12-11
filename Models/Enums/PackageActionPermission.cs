@@ -65,4 +65,6 @@ public enum PackageActionPermission
     /// Allows a user to upload information acting on another users behalf within a package action.
     /// </summary>
     AddAlt = 256,
+    
+    All = Administrator | ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | RemoveAlt | AddAlt
 }

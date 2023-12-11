@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AppliedSoftware.Models.DTOs;
 
 /// <summary>
@@ -33,5 +35,6 @@ public class EmailAttachmentDto
     /// <summary>
     /// The navigation property to the email package action.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public EmailPackageActionDto EmailPackageActionDto { get; set; } = null!;
 }

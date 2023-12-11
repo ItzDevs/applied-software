@@ -251,8 +251,8 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     TeamId = table.Column<long>(type: "bigint", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: true),
-                    AllowedPermissions = table.Column<int>(type: "integer", nullable: false),
-                    DisallowedPermissions = table.Column<int>(type: "integer", nullable: false),
+                    AllowedPermissions = table.Column<int>(type: "integer", nullable: true),
+                    DisallowedPermissions = table.Column<int>(type: "integer", nullable: true),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)

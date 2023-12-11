@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -30,12 +31,12 @@ public class UserGroupDto
     /// <summary>
     /// The allowed permissions for the user group.
     /// </summary>
-    public PackageActionPermission AllowedPermissions { get; set; } = PackageActionPermission.None;
+    public PackageActionPermission? AllowedPermissions { get; set; }
     
     /// <summary>
     /// The explicitly denied permissions for the user group.
     /// </summary>
-    public PackageActionPermission DisallowedPermissions { get; set; } = PackageActionPermission.None;
+    public PackageActionPermission? DisallowedPermissions { get; set; }
     
     /// <summary>
     /// Whether the user group is active.
@@ -55,6 +56,7 @@ public class UserGroupDto
     /// <summary>
     /// The Team navigation property
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual TeamDto Team { get; set; } = null!;
     
     /// <summary>

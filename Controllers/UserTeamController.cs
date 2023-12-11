@@ -33,9 +33,14 @@ public class UserTeamController(
         => (await repository.CreateTeam(newTeam)).ToResponse();
 
     [HttpGet("teams")]
-    public async Task<IActionResult> GetTeams() => throw new NotImplementedException();
+    public async Task<IActionResult> GetTeams() 
+        => (await repository.GetTeams()).ToResponse();
     
     [HttpGet("teams/{teamIdentifier}")]
     public async Task<IActionResult> GetTeam(string teamIdentifier) 
         => (await repository.GetTeam(teamIdentifier)).ToResponse();
+    
+    [HttpPost("usergroups")]
+    public async Task<IActionResult> CreateUserGroup([FromBody] CreateUserGroup newUserGroup)
+        => (await repository.CreateUserGroup(newUserGroup)).ToResponse();
 }

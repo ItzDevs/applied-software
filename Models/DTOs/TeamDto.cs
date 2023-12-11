@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -47,6 +48,7 @@ public class TeamDto
     /// <summary>
     /// The navigation property to the team.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>

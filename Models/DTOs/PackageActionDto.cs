@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -25,6 +26,7 @@ public class PackageActionDto
     /// <summary>
     /// The package navigation object.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>

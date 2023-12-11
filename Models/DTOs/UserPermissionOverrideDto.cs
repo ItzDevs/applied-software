@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -63,10 +64,12 @@ public class UserPermissionOverrideDto
     /// </summary>
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     
-    
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual UserDto User { get; set; } = null!;
     
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageDto Package { get; set; } = null!;
     
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageActionDto? PackageAction { get; set; } = null!;
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -32,5 +33,6 @@ public class GlobalPermissionDto
     /// <summary>
     /// The navigation property for the user. 
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual UserDto User { get; set; } = null!;
 }

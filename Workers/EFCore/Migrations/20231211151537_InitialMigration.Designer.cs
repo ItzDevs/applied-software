@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231211132540_InitialMigration")]
+    [Migration("20231211151537_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -264,7 +264,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("UserGroupId"));
 
-                    b.Property<int>("AllowedPermissions")
+                    b.Property<int?>("AllowedPermissions")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -273,7 +273,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<int>("DisallowedPermissions")
+                    b.Property<int?>("DisallowedPermissions")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AppliedSoftware.Models.Enums;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -65,15 +66,18 @@ public class UserGroupPermissionOverrideDto
     /// <summary>
     /// The user group this override applies to.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual UserGroupDto UserGroup { get; set; } = null!;
 
     /// <summary>
     /// The package this override applies to, this will be used when <see cref="PackageAction"/> is null.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>
     /// The package action this override applies to, this property takes precedence over <see cref="Package"/>.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public virtual PackageActionDto? PackageAction { get; set; } = null!;
 }

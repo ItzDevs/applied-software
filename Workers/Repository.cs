@@ -25,8 +25,8 @@ public class Repository(
         return user is not null
             ? new(HttpStatusCode.OK, user)
             : new(HttpStatusCode.NotFound,
-                error: new(eErrorCode.NotFound,
-                    new[] { "No user global permissions found." }));
+                error: new(eErrorCode.NotFound, new[] 
+                    { "No user global permissions found." }));
     }
 
     /// <inheritdoc />
@@ -162,6 +162,64 @@ public class Repository(
         }
     }
 
+    public async Task<StatusContainer<IEnumerable<TeamDto>>> GetTeams(
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetTeams)}");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        List<TeamDto> userTeams = [];
+        List<TeamDto> readTeams = [];
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+            {
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            }
+            var userInTeam 
+                = await GetUser(
+                    userId);
+            if(!userInTeam.Success)
+                return new(userInTeam.StatusCode, 
+                    error: userInTeam.ResponseData.Error);
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ReadTeam)))
+            {   // TODO: WOrk on the message.
+                logger.LogWarning($"User {userId} does not have the required permissions to read team information");
+            }
+            else
+            {
+                readTeams = await context.Teams
+                  .AsNoTracking()
+                  .Where(x => !x.Deleted)
+                  .ToListAsync();
+            }
+
+            userTeams = await context.Teams
+                .AsNoTracking()
+                .Where(x => x.Users.Any(y => y.Uid == userId) && !x.Deleted)
+                .ToListAsync();
+
+        }
+        
+        List<TeamDto> grouped = [..userTeams, ..readTeams];
+        grouped = grouped.DistinctBy(x => x.TeamId).ToList();
+        return grouped.Count > 0 ? 
+            new(HttpStatusCode.OK, grouped) : 
+            new(HttpStatusCode.Forbidden, 
+                error: new(eErrorCode.Forbidden, new[] 
+                    { "You do not have access to any teams" }));
+    }
+    
     public async Task<StatusContainer<TeamDto>> GetTeam(
         string teamIdentifier,
         bool isInternal = false)
@@ -342,6 +400,89 @@ public class Repository(
         await context.SaveChangesAsync();
         return HttpStatusCode.OK;
     }
+
+    public async Task<StatusContainer> CreateUserGroup(
+        CreateUserGroup newUserGroup,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(CreateUserGroup)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+        {
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+        }
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    validation.ResponseData.Error);
+            
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.CreateUserGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to create user group");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+        
+        // Data validation
+        var messages = new List<string>();
+        if(newUserGroup.TeamId is null)
+            messages.Add("TeamId is required.");
+        if(string.IsNullOrWhiteSpace(newUserGroup.Name))
+            messages.Add("A user group name is required.");
+
+        var teamExists = await context.Teams
+            .FirstOrDefaultAsync(x => x.TeamId == newUserGroup.TeamId) is not null;
+        
+       if(!teamExists)
+           messages.Add("The team does not exist.");
+        
+        if(messages.Count > 0)
+            return new(HttpStatusCode.BadRequest, 
+                new(eErrorCode.ValidationError, messages));
+
+        try
+        {
+            var userGroup = new UserGroupDto
+            {
+                TeamId = (long)newUserGroup.TeamId!,
+                Name = newUserGroup.Name,
+                Description = newUserGroup.Description,
+                AllowedPermissions = newUserGroup.AllowedPermissions,
+                DisallowedPermissions = newUserGroup.DisallowedPermissions,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+            context.UserGroups.Add(userGroup);
+            await context.SaveChangesAsync();
+            
+            return HttpStatusCode.Created;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to create team - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.Conflict, new[]
+                    { "Failed to create a team, please ensure there is no team with the same name." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create team");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create a team, please try again later." }));
+        }
+    }
 }
 
 public interface IRepository
@@ -377,6 +518,14 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Gets teams.
+    /// </summary>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<IEnumerable<TeamDto>>> GetTeams(
+        bool isInternal = false);
+    
+    /// <summary>
     /// Get a team by the id or name if the required permissions are granted, or return an error that can be returned to the user.
     /// </summary>
     /// <param name="teamIdentifier"></param>
@@ -396,5 +545,15 @@ public interface IRepository
     Task<StatusContainer<TeamDto>> UpdateTeam(
         string teamIdentifier,
         CreateTeam updateTeam,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Create a new user group if the required permissions are granted, or return an error that can be returned
+    /// </summary>
+    /// <param name="newUserGroup"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> CreateUserGroup(
+        CreateUserGroup newUserGroup,
         bool isInternal = false);
 }
