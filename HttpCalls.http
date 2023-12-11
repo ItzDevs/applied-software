@@ -1,5 +1,6 @@
 @AppliedSoftware_HostAddress = 
 @JWT = 
+@TeamIdentifier = 
 
 
 GET {{AppliedSoftware_HostAddress}}/api/v1/packages
@@ -18,3 +19,29 @@ Content-Type: application/json
   "defaultAllowedPermissions": 1,
   "defaultDisallowedPermissions": 0
 }
+
+###
+GET {{AppliedSoftware_HostAddress}}/api/v1/management/teams
+Accept: application/json
+Authorization: Bearer {{JWT}}
+
+###
+
+GET {{AppliedSoftware_HostAddress}}/api/v1/management/teams/{{TeamIdentifier}}
+Accept: application/json
+Authorization: Bearer {{JWT}}
+
+###
+POST {{AppliedSoftware_HostAddress}}/api/v1/management/usergroups
+Accept: application/json
+Authorization: Bearer {{JWT}}
+
+Content-Type: application/json
+{
+  "teamId": {{TeamIdentifier}},
+  "name": "my team",
+  "description": "This is my awesome team",
+  "allowedPermissions": 0, 
+  "disallowedPermissions": 0
+}
+###
