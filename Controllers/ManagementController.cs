@@ -12,7 +12,7 @@ namespace AppliedSoftware.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/management")]
 [Authorize]
-public class UserTeamController(
+public class ManagementController(
     IRepository repository) : ControllerBase
 {
     [HttpGet]
@@ -43,4 +43,8 @@ public class UserTeamController(
     [HttpPost("usergroups")]
     public async Task<IActionResult> CreateUserGroup([FromBody] CreateUserGroup newUserGroup)
         => (await repository.CreateUserGroup(newUserGroup)).ToResponse();
+    
+    [HttpGet("usergroups")]
+    public async Task<IActionResult> GetUserGroups() 
+        => (await repository.GetUserGroups()).ToResponse();
 }

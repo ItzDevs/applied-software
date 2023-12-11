@@ -90,6 +90,7 @@ public class Repository(
         return new(HttpStatusCode.OK, permissionFlag);
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer> CreateTeam(
         CreateTeam newTeam,
         bool isInternal = false)
@@ -99,10 +100,8 @@ public class Repository(
 
         // Authentication
         if (claims is null && !isInternal)
-        {
             return new(HttpStatusCode.Unauthorized,
                 CodeMessageResponse.Unauthorised);
-        }
 
         if (!isInternal)
         {
@@ -162,6 +161,7 @@ public class Repository(
         }
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<IEnumerable<TeamDto>>> GetTeams(
         bool isInternal = false)
     {
@@ -173,17 +173,17 @@ public class Repository(
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
 
+        // This allows the service to work out if the user doesn't have permission to see any teams, or if there just are none available.
+        var authorisedIfEmpty = true;
         List<TeamDto> userTeams = [];
-        List<TeamDto> readTeams = [];
+        List<TeamDto> readTeams = []; // For if the user has read permissions for user groups as a GlobalPermission.
         if (!isInternal)
         {
             var userId = authenticationService.ExtractUserId(claims);
             var validation = await ValidateUser(userId);
             if (!validation.Success)
-            {
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
             var userInTeam 
                 = await GetUser(
                     userId);
@@ -193,8 +193,9 @@ public class Repository(
             var permissionFlag = validation.ResponseData.Body;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ReadTeam)))
-            {   // TODO: WOrk on the message.
+            { 
                 logger.LogWarning($"User {userId} does not have the required permissions to read team information");
+                authorisedIfEmpty = false; 
             }
             else
             {
@@ -208,18 +209,28 @@ public class Repository(
                 .AsNoTracking()
                 .Where(x => x.Users.Any(y => y.Uid == userId) && !x.Deleted)
                 .ToListAsync();
-
         }
-        
+        else
+            readTeams = await context.Teams
+             .AsNoTracking()
+             .ToListAsync();
+
         List<TeamDto> grouped = [..userTeams, ..readTeams];
         grouped = grouped.DistinctBy(x => x.TeamId).ToList();
-        return grouped.Count > 0 ? 
-            new(HttpStatusCode.OK, grouped) : 
-            new(HttpStatusCode.Forbidden, 
-                error: new(eErrorCode.Forbidden, new[] 
-                    { "You do not have access to any teams" }));
+        return grouped.Count switch
+        {
+            0 when authorisedIfEmpty 
+                => new(HttpStatusCode.NotFound, 
+                    error: new(eErrorCode.NotFound, new[]
+                        { "No user groups were found" })),
+            0 => new(HttpStatusCode.Forbidden,
+                error: new(eErrorCode.Forbidden, new[]
+                    { "You do not have access to user groups.", "You are not in any user groups." })),
+            _ => new(HttpStatusCode.OK, grouped)
+        };
     }
     
+    /// <inheritdoc />
     public async Task<StatusContainer<TeamDto>> GetTeam(
         string teamIdentifier,
         bool isInternal = false)
@@ -240,10 +251,8 @@ public class Repository(
             var userId = authenticationService.ExtractUserId(claims);
             var validation = await ValidateUser(userId);
             if (!validation.Success)
-            {
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
             var userInTeam 
                 = await GetUser(
@@ -283,6 +292,7 @@ public class Repository(
                     { $"The requested team ({teamIdentifier}) could not be found." }));
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<TeamDto>> UpdateTeam(
         string teamIdentifier,
         CreateTeam updateTeam,
@@ -348,6 +358,7 @@ public class Repository(
             team);
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer> DeleteTeam(
         string teamIdentifier,
         bool isInternal = false)
@@ -401,6 +412,7 @@ public class Repository(
         return HttpStatusCode.OK;
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer> CreateUserGroup(
         CreateUserGroup newUserGroup,
         bool isInternal = false)
@@ -410,10 +422,8 @@ public class Repository(
 
         // Authentication
         if (claims is null && !isInternal)
-        {
             return new(HttpStatusCode.Unauthorized,
                 CodeMessageResponse.Unauthorised);
-        }
 
         if (!isInternal)
         {
@@ -483,6 +493,76 @@ public class Repository(
                     { "Failed to create a team, please try again later." }));
         }
     }
+
+    /// <inheritdoc />
+    public async Task<StatusContainer<IEnumerable<UserGroupDto>>> GetUserGroups(
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetUserGroups)}");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        // This allows the service to work out if the user doesn't have permission to see any user groups, or if there just are none available.
+        var authorisedIfEmpty = true;
+        List<UserGroupDto> userUserGroups = [];
+        List<UserGroupDto> readUserGroups = []; // For if the user has read permissions for user groups as a GlobalPermission.
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            
+            var userInTeam 
+                = await GetUser(
+                    userId);
+            if(!userInTeam.Success)
+                return new(userInTeam.StatusCode, 
+                    error: userInTeam.ResponseData.Error);
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                  permissionFlag.HasFlag(GlobalPermission.ReadUserGroup)))
+            { 
+                logger.LogWarning($"User {userId} does not have the required permissions to view non-granted user group information");
+                authorisedIfEmpty = false;
+            }
+               
+            else
+                readUserGroups = await context.UserGroups
+                  .AsNoTracking()
+                  .Where(x => !x.IsDeleted)
+                  .ToListAsync();
+
+            userUserGroups = await context.UserGroups
+                .AsNoTracking()
+                .Where(x => x.Users.Any(y => y.Uid == userId) && !x.IsDeleted)
+                .ToListAsync();
+        }
+        else
+            readUserGroups = await context.UserGroups
+                .AsNoTracking()
+                .ToListAsync();
+
+        List<UserGroupDto> grouped = [..userUserGroups, ..readUserGroups];
+        grouped = grouped.DistinctBy(x => x.TeamId).ToList();
+
+        return grouped.Count switch
+        {
+            0 when authorisedIfEmpty 
+              => new(HttpStatusCode.NotFound, 
+                    error: new(eErrorCode.NotFound, new[]
+                        { "No user groups were found" })),
+            0 => new(HttpStatusCode.Forbidden,
+                    error: new(eErrorCode.Forbidden, new[]
+                    { "You do not have access to user groups.", "You are not in any user groups." })),
+            _ => new(HttpStatusCode.OK, grouped)
+        };
+    }
 }
 
 public interface IRepository
@@ -548,6 +628,16 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Delete an existing team by the id or name if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="teamIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> DeleteTeam(
+        string teamIdentifier,
+        bool isInternal = false);
+
+    /// <summary>
     /// Create a new user group if the required permissions are granted, or return an error that can be returned
     /// </summary>
     /// <param name="newUserGroup"></param>
@@ -555,5 +645,13 @@ public interface IRepository
     /// <returns></returns>
     Task<StatusContainer> CreateUserGroup(
         CreateUserGroup newUserGroup,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Get the user groups if the required permissions are granted (or the user is a member of), or return an error that can be returned to the
+    /// </summary>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<IEnumerable<UserGroupDto>>> GetUserGroups(
         bool isInternal = false);
 }
