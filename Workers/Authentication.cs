@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using AppliedSoftware.Models.Response.Auth;
-using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 
 namespace AppliedSoftware.Workers;
