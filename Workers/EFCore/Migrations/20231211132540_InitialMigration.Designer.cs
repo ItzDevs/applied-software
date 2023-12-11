@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231208143011_InitialMigration")]
+    [Migration("20231211132540_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -195,8 +195,8 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Property<int>("DefaultAllowedPermissions")
                         .HasColumnType("integer");
 
-                    b.Property<int>("DefaultDisallowedPermissions")
-                        .HasColumnType("integer");
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -205,7 +205,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<long?>("PackageDtoPackageId")
+                    b.Property<long?>("PackageId")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("UpdatedAtUtc")
@@ -214,7 +214,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.HasKey("TeamId")
                         .HasName("team__pk");
 
-                    b.HasIndex("PackageDtoPackageId");
+                    b.HasIndex("PackageId");
 
                     b.HasIndex(new[] { "Name" }, "team_name__indx");
 
@@ -478,9 +478,11 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.TeamDto", b =>
                 {
-                    b.HasOne("AppliedSoftware.Models.DTOs.PackageDto", null)
+                    b.HasOne("AppliedSoftware.Models.DTOs.PackageDto", "Package")
                         .WithMany("Teams")
-                        .HasForeignKey("PackageDtoPackageId");
+                        .HasForeignKey("PackageId");
+
+                    b.Navigation("Package");
                 });
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.UserGroupDto", b =>

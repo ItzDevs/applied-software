@@ -118,17 +118,17 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: true),
                     DefaultAllowedPermissions = table.Column<int>(type: "integer", nullable: false),
-                    DefaultDisallowedPermissions = table.Column<int>(type: "integer", nullable: false),
+                    Deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    PackageId = table.Column<long>(type: "bigint", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    PackageDtoPackageId = table.Column<long>(type: "bigint", nullable: true)
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("team__pk", x => x.TeamId);
                     table.ForeignKey(
-                        name: "FK_team_package_PackageDtoPackageId",
-                        column: x => x.PackageDtoPackageId,
+                        name: "FK_team_package_PackageId",
+                        column: x => x.PackageId,
                         principalTable: "package",
                         principalColumn: "PackageId");
                 });
@@ -381,9 +381,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 column: "PackageId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_team_PackageDtoPackageId",
+                name: "IX_team_PackageId",
                 table: "team",
-                column: "PackageDtoPackageId");
+                column: "PackageId");
 
             migrationBuilder.CreateIndex(
                 name: "team_name__indx",

@@ -25,9 +25,14 @@ public class TeamDto
     public PackageActionPermission DefaultAllowedPermissions { get; set; } = PackageActionPermission.None;
     
     /// <summary>
-    /// The team's default disallowed permissions.
+    /// Whether the team has been deleted.
     /// </summary>
-    public PackageActionPermission DefaultDisallowedPermissions { get; set; } = PackageActionPermission.None;
+    public bool Deleted { get; set; } = false;
+    
+    /// <summary>
+    /// The package that the team belongs to.
+    /// </summary>
+    public long? PackageId { get; set; }
     
     /// <summary>
     /// Created Timestamp.
@@ -38,6 +43,11 @@ public class TeamDto
     /// Updated Timestamp.
     /// </summary>
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// The navigation property to the team.
+    /// </summary>
+    public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>
     /// All users belonging to this team, without their user groups.
