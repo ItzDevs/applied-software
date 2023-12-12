@@ -351,17 +351,36 @@ public class Repository(
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.Conflict, new[] 
                     { "No changes detected." }));
-        
-        // Back any nulls with the ?? operator to fall back to the previous value.
-        team.Name = updateTeam.Name ?? team.Name;
-        team.Description = updateTeam.Description ?? team.Description;
-        team.DefaultAllowedPermissions = updateTeam.DefaultAllowedPermissions ?? team.DefaultAllowedPermissions;
-        team.PackageId = updateTeam.BelongsToPackageId ?? team.PackageId;
-        team.UpdatedAtUtc = DateTime.UtcNow;
+        try
+        {
+            // Back any nulls with the ?? operator to fall back to the previous value.
+            team.Name = updateTeam.Name ?? team.Name;
+            team.Description = updateTeam.Description ?? team.Description;
+            team.DefaultAllowedPermissions = updateTeam.DefaultAllowedPermissions ?? team.DefaultAllowedPermissions;
+            team.PackageId = updateTeam.BelongsToPackageId ?? team.PackageId;
+            team.UpdatedAtUtc = DateTime.UtcNow;
 
-        await context.SaveChangesAsync();
-        return new(HttpStatusCode.OK, 
-            team);
+            await context.SaveChangesAsync();
+            return new(HttpStatusCode.OK, 
+                team);
+        }
+        
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not update team");
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.BadRequest, new[] 
+                    { "Failed to update the team." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not update team");
+            
+            return new(HttpStatusCode.InternalServerError, 
+                error: new(eErrorCode.ServiceUnavailable, new[] 
+                { "Failed to update team.", 
+                  "An unknown error occurred." }));
+        }
     }
 
     /// <inheritdoc />
@@ -411,11 +430,31 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested team ({teamIdentifier}) could not be found." }));
 
-        team.Deleted = true;
-        team.UpdatedAtUtc = DateTime.UtcNow;
+        try
+        {
+            team.Deleted = true;
+            team.UpdatedAtUtc = DateTime.UtcNow;
         
-        await context.SaveChangesAsync();
-        return HttpStatusCode.OK;
+            await context.SaveChangesAsync();
+        
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not delete team");
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.BadRequest, new[] 
+                    { "Failed to delete the team." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not delete user group");
+            
+            return new(HttpStatusCode.InternalServerError, 
+                error: new(eErrorCode.ServiceUnavailable, new[] 
+                { "Failed to delete team.", 
+                    "An unknown error occurred." }));
+        }
     }
 
     /// <inheritdoc />
@@ -472,7 +511,7 @@ public class Repository(
             var userGroup = new UserGroupDto
             {
                 TeamId = (long)newUserGroup.TeamId!,
-                Name = newUserGroup.Name,
+                Name = newUserGroup.Name!,
                 Description = newUserGroup.Description,
                 AllowedPermissions = newUserGroup.AllowedPermissions,
                 DisallowedPermissions = newUserGroup.DisallowedPermissions,
@@ -575,7 +614,7 @@ public class Repository(
         string userGroupIdentifier,
         bool isInternal = false)
     {
-        logger.LogInformation($"{nameof(GetTeam)} (isInternal={isInternal})");
+        logger.LogInformation($"{nameof(GetUserGroup)} (isInternal={isInternal})");
         var claims = httpContextAccessor.HttpContext?.User;
 
         // Authentication
@@ -635,5 +674,163 @@ public class Repository(
             : new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+    }
+
+    /// <inheritdoc />
+    public async Task<StatusContainer<UserGroupDto>> UpdateUserGroup(
+        string userGroupIdentifier,
+        CreateUserGroup updateUserGroup,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(UpdateUserGroup)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+            {
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            }
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update team");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAction);
+            }
+        }
+        
+        // Checking to see if the teamIdentifier is a long (the team Id) or the team name; and attempt to load the team
+        // accordingly.
+        UserGroupDto? userGroup;
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        if (userGroup is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+        
+        // Data validation; overloaded == operator to check that the objects are the same (CreateUserGroup must be the first parameter).
+        if (updateUserGroup == userGroup)
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.Conflict, new[] 
+                    { "No changes detected." }));
+
+        try
+        {
+            // Back any nulls with the ?? operator to fall back to the previous value.
+            userGroup.Name = updateUserGroup.Name ?? userGroup.Name;
+            userGroup.Description = updateUserGroup.Description ?? userGroup.Description;
+            userGroup.AllowedPermissions = updateUserGroup.AllowedPermissions ?? userGroup.AllowedPermissions;
+            userGroup.DisallowedPermissions = updateUserGroup.DisallowedPermissions ?? userGroup.DisallowedPermissions;
+            userGroup.TeamId = updateUserGroup.TeamId ?? userGroup.TeamId;
+            userGroup.UpdatedAtUtc = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+            return new(HttpStatusCode.OK, 
+                userGroup);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not update user group");
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.BadRequest, new[] 
+                    { "Failed to update the user group." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not update user group");
+            
+            return new(HttpStatusCode.InternalServerError, 
+                error: new(eErrorCode.ServiceUnavailable, new[] 
+                { "Failed to update user group.", 
+                    "An unknown error occurred." }));
+        }
+    }
+
+    public async Task<StatusContainer> DeleteUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(UpdateTeam)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+            {
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            }
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.DeleteUserGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to delete the team");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAction);
+            }
+        }
+        
+        // Checking to see if the teamIdentifier is a long (the team Id) or the team name; and attempt to load the team
+        // accordingly.
+        UserGroupDto? userGroup;
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        if (userGroup is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested team ({userGroupIdentifier}) could not be found." }));
+
+        try
+        {
+            userGroup.IsDeleted = true;
+            userGroup.UpdatedAtUtc = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not delete user group");
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.BadRequest, new[] 
+                    { "Failed to delete the user group." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not delete user group");
+            
+            return new(HttpStatusCode.InternalServerError, 
+                error: new(eErrorCode.ServiceUnavailable, new[] 
+                    { "Failed to delete user group.", 
+                      "An unknown error occurred." }));
+        }
     }
 }

@@ -103,4 +103,16 @@ public interface IRepository
     Task<StatusContainer<UserGroupDto>> GetUserGroup(
         string userGroupIdentifier,
         bool isInternal = false);
+
+    /// <summary>
+    /// Update an existing user group by the id or name if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="updateUserGroup"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<UserGroupDto>> UpdateUserGroup(
+        string userGroupIdentifier,
+        CreateUserGroup updateUserGroup,
+        bool isInternal = false);
 }
