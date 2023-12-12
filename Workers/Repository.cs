@@ -563,4 +563,66 @@ public class Repository(
             _ => new(HttpStatusCode.OK, grouped)
         };
     }
+
+    /// <inheritdoc />
+    public async Task<StatusContainer<UserGroupDto>> GetUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetTeam)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        var isUsingId = long.TryParse(userGroupIdentifier, out var userGroupId);
+        
+        
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+
+            var userInGroup 
+                = await GetUser(
+                    userId);
+            
+            if(!userInGroup.Success)
+                return new(userInGroup.StatusCode, 
+                    error: userInGroup.ResponseData.Error);
+
+            var userGroups = userInGroup.ResponseData.Body?.UserGroups;
+
+            var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
+            var groupsAsNames = userGroups?.Select(x => x.Name);
+            
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ReadUserGroup)) || 
+                !(groupsAsIds?.Contains(userGroupId) == false || 
+                 groupsAsNames?.Contains(userGroupIdentifier) == false))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to read group information");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAccess);
+            }
+        }
+
+        UserGroupDto? userGroup;
+        if(isUsingId)
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        return userGroup is not null
+            ? new(HttpStatusCode.OK, userGroup)
+            : new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+    }
 }

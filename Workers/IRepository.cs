@@ -93,4 +93,14 @@ public interface IRepository
     /// <returns></returns>
     Task<StatusContainer<IEnumerable<UserGroupDto>>> GetUserGroups(
         bool isInternal = false);
+
+    /// <summary>
+    /// Get a user group by the id or name if the required permissions are granted, or return an error
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<UserGroupDto>> GetUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false);
 }

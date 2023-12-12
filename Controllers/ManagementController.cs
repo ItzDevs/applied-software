@@ -21,9 +21,7 @@ public class ManagementController(
     {
         return BadRequest("Invalid route.");
     }
-    
-    
-    
+
     /// <summary>
     /// Gets all packages that a user has authorised access to.
     /// </summary>
@@ -47,4 +45,8 @@ public class ManagementController(
     [HttpGet("usergroups")]
     public async Task<IActionResult> GetUserGroups() 
         => (await repository.GetUserGroups()).ToResponse();
+    
+    [HttpGet("usergroups/{userGroupIdentifier}")]
+    public async Task<IActionResult> GetUserGroup(string userGroupIdentifier) 
+        => (await repository.GetUserGroup(userGroupIdentifier)).ToResponse();
 }
