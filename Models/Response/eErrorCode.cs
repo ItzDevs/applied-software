@@ -11,6 +11,11 @@ public enum eErrorCode
     /// No results in the search page.
     /// </summary>
     EmptyResults = 95,
+    
+    /// <summary>
+    /// There were no changes to apply.
+    /// </summary>
+    NothingToUpdate = 100,
 
     /// <summary>
     /// If the page size is less than 1, or greater than 100

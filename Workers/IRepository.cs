@@ -117,6 +117,18 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Adds a list of user ids to a user group if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="userIds"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> AddUsersToUserGroup(
+        string userGroupIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false);
+    
+    /// <summary>
     /// Create a new package if the required permissions are granted, or return an error that can be returned
     /// </summary>
     /// <param name="createPackage"></param>

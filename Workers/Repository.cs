@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Net;
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Enums;
@@ -871,7 +872,7 @@ public class Repository(
                 error: new(eErrorCode.ValidationError, new []
                     { "User ids cannot be empty." }));
         
-        var userIdsList = userIds.Split(',').ToList();
+        var userIdsList = userIds.Replace(" ", "").Split(',').ToList();
 
         UserGroupDto? userGroup;
         if(long.TryParse(userGroupIdentifier, out var userGroupId))
@@ -888,15 +889,21 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
         var currentUsersInGroup = userGroup.Users.Select(x => x.Uid).ToList();
+        // Filter out any users that are already in the group.
         userIdsList = userIdsList.Where(x => !currentUsersInGroup.Contains(x)).ToList();
 
+        // Check that we have some users to add.
+        if (userIdsList.Count == 0) 
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.NothingToUpdate, new[]
+                    { "All the users were already in the user group." }));
         var failedUsers = new List<string>();
         try
         {
             foreach (var userId in userIdsList)
             {
                 var user = await context.Users.FirstOrDefaultAsync(x => x.Uid == userId);
-
+                // If the user id isn't in the database we add it to our failed users list.
                 if (user is null)
                 {
                     logger.LogWarning($"User with id {userId} was not found.");
@@ -908,6 +915,12 @@ public class Repository(
             }
             await context.SaveChangesAsync();
 
+            if (failedUsers.Count > 0)
+            {
+                return new(HttpStatusCode.BadRequest, 
+                    error: new(eErrorCode.ValidationError, 
+                        failedUsers.Select(x => $"User with id {x} was not found.").ToArray()));
+            }
             return HttpStatusCode.OK;
         }
         catch (DbUpdateException ex)

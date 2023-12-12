@@ -30,4 +30,8 @@ public class UserGroupsController(
     [HttpPut("{userGroupIdentifier}")]
     public async Task<IActionResult> UpdateUserGroup(string userGroupIdentifier, [FromBody] CreateUserGroup updateUserGroup)
         => (await repository.UpdateUserGroup(userGroupIdentifier, updateUserGroup)).ToResponse();
+    
+    [HttpPut("{userGroupIdentifier}/users")]
+    public async Task<IActionResult> AddUsersToUserGroup(string userGroupIdentifier, string? userIds)
+        => (await repository.AddUsersToUserGroup(userGroupIdentifier, userIds)).ToResponse();
 }
