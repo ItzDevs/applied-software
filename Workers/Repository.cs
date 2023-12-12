@@ -268,10 +268,16 @@ public class Repository(
             var teamsAsNames = teams?.Select(x => x.Name);
             
             var permissionFlag = validation.ResponseData.Body;
-            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.ReadTeam)) || 
-                !(teamsAsIds?.Contains(teamId) == false || 
-                 teamsAsNames?.Contains(teamIdentifier) == false))
+
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadTeam);
+
+            var teamFound = teamsAsIds?.Contains(teamId) == true || 
+                            teamsAsNames?.Contains(teamIdentifier) == true;
+            // If the user does not have the global permission Administrator or ReadTeam
+            if (!flagPermissionsFound && 
+                // Then we need to check if the user is a member of the requested team
+                !teamFound)
             {
                 logger.LogWarning($"User {userId} does not have the required permissions to read team information");
                 return new(HttpStatusCode.Forbidden, 
@@ -602,10 +608,15 @@ public class Repository(
             var groupsAsNames = userGroups?.Select(x => x.Name);
             
             var permissionFlag = validation.ResponseData.Body;
-            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.ReadUserGroup)) || 
-                !(groupsAsIds?.Contains(userGroupId) == false || 
-                 groupsAsNames?.Contains(userGroupIdentifier) == false))
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadTeam);
+
+            var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
+                            groupsAsNames?.Contains(userGroupIdentifier) == true;
+            // If the user does not have the global permission Administrator or ReadTeam
+            if (!flagPermissionsFound && 
+                // Then we need to check if the user is a member of the requested team
+                !userGroupFound)
             {
                 logger.LogWarning($"User {userId} does not have the required permissions to read group information");
                 return new(HttpStatusCode.Forbidden, 
