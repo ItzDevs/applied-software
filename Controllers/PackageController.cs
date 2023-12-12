@@ -1,3 +1,4 @@
+using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,8 @@ namespace AppliedSoftware.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/packages")]
 [Authorize]
-public class PackageController : ControllerBase
+public class PackageController(
+    IRepository repository) : ControllerBase
 {
     
     /// <summary>

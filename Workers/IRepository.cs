@@ -115,4 +115,14 @@ public interface IRepository
         string userGroupIdentifier,
         CreateUserGroup updateUserGroup,
         bool isInternal = false);
+
+    /// <summary>
+    /// Create a new package if the required permissions are granted, or return an error that can be returned
+    /// </summary>
+    /// <param name="createPackage"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> CreatePackage(
+        CreatePackage createPackage,
+        bool isInternal = false);
 }

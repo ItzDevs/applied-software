@@ -833,4 +833,171 @@ public class Repository(
                       "An unknown error occurred." }));
         }
     }
+
+    public async Task<StatusContainer> AddUsersToUserGroup(
+        string userGroupIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    validation.ResponseData.Error);
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(userIds))
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new []
+                    { "User ids cannot be empty." }));
+        
+        var userIdsList = userIds.Split(',').ToList();
+
+        UserGroupDto? userGroup;
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        if (userGroup is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+        var currentUsersInGroup = userGroup.Users.Select(x => x.Uid).ToList();
+        userIdsList = userIdsList.Where(x => !currentUsersInGroup.Contains(x)).ToList();
+
+        var failedUsers = new List<string>();
+        try
+        {
+            foreach (var userId in userIdsList)
+            {
+                var user = await context.Users.FirstOrDefaultAsync(x => x.Uid == userId);
+
+                if (user is null)
+                {
+                    logger.LogWarning($"User with id {userId} was not found.");
+                    failedUsers.Add(userId);
+                    continue;
+                }
+
+                user.UserGroups.Add(userGroup);
+            }
+            await context.SaveChangesAsync();
+
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not add users to user group");
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.BadRequest, new[]
+                    { "Failed to add users to the user group." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not add users to user group");
+            return new(HttpStatusCode.InternalServerError,
+                error: new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to add users to the user group.",
+                      "An unknown error occurred." }));
+        }
+    }
+    
+    public async Task<StatusContainer> CreateUserGroupOverride()
+    {
+        throw new NotImplementedException();
+    }
+    
+    public async Task<StatusContainer> CreatePackage(
+        CreatePackage createPackage,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(CreatePackage)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    validation.ResponseData.Error);
+            
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.CreatePackage)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to create package");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+        
+        // Data validation
+        if(string.IsNullOrWhiteSpace(createPackage.Name))
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.ValidationError, new[] 
+                    { "A package name must be provided." }));
+
+        try
+        {
+            var package = new PackageDto()
+            {
+                Name = createPackage.Name,
+                Description = createPackage.Description,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            context.Packages.Add(package);
+            await context.SaveChangesAsync();
+
+            return HttpStatusCode.Created;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to create team - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.Conflict, new[]
+                    { "Failed to create a team, please ensure there is no team with the same name." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create team");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create a team, please try again later." }));
+        }
+    }
 }
