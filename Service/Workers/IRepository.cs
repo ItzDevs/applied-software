@@ -167,4 +167,36 @@ public interface IRepository
     /// <returns></returns>
     Task<StatusContainer<IEnumerable<PackageDto>>> GetPackages(
         bool isInternal = false);
+
+    /// <summary>
+    /// Get a package by the id or name if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="packageIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<PackageDto>> GetPackage(
+        string packageIdentifier,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Creates a new package action if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="packageIdentifier"></param>
+    /// <param name="createPackageAction"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> CreatePackageAction(
+        string packageIdentifier,
+        CreatePackageAction createPackageAction,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Get package actions if the required permissions are granted, or return an error that can be returned to the
+    /// </summary>
+    /// <param name="packageIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<IEnumerable<PackageActionDto>>> GetPackageActions(
+        string packageIdentifier,
+        bool isInternal = false);
 }

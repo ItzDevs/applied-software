@@ -22,4 +22,12 @@
         </PackageReference>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Mock\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Service\AppliedSoftware.csproj" />
+    </ItemGroup>
+
 </Project>

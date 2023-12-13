@@ -31,7 +31,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AttachmentId"));
 
-                    b.Property<long>("EmailPackageActionDtoPackageActionId")
+                    b.Property<long>("EmailPackageActionDtoEmailId")
                         .HasColumnType("bigint");
 
                     b.Property<long>("EmailPackageActionId")
@@ -52,21 +52,24 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.HasKey("AttachmentId")
                         .HasName("email_attachment__pk");
 
-                    b.HasIndex("EmailPackageActionDtoPackageActionId");
+                    b.HasIndex("EmailPackageActionDtoEmailId");
 
                     b.ToTable("email_attachment", (string)null);
                 });
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.EmailPackageActionDto", b =>
                 {
-                    b.Property<long>("PackageActionId")
+                    b.Property<long>("EmailId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("PackageActionId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("EmailId"));
 
                     b.Property<string>("Body")
                         .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<NpgsqlTsVector>("EmailTsVector")
                         .IsRequired()
@@ -74,6 +77,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .HasColumnType("tsvector")
                         .HasAnnotation("Npgsql:TsVectorConfig", "english")
                         .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body" });
+
+                    b.Property<long>("PackageActionId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Recipients")
                         .HasColumnType("text");
@@ -84,8 +90,13 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Property<string>("Subject")
                         .HasColumnType("text");
 
-                    b.HasKey("PackageActionId")
-                        .HasName("email_package_action__pk");
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("EmailId")
+                        .HasName("email_id_action__pk");
+
+                    b.HasIndex("PackageActionId");
 
                     b.HasIndex(new[] { "EmailTsVector" }, "email_tsv__indx");
 
@@ -134,16 +145,23 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("PackageActionId"));
 
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("PackageActionType")
                         .HasColumnType("integer");
 
                     b.Property<long>("PackageId")
                         .HasColumnType("bigint");
 
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("PackageActionId")
                         .HasName("package_action__pk");
 
-                    b.HasIndex("PackageId");
+                    b.HasIndex(new[] { "PackageId", "PackageActionType" }, "package_action_unq__indx")
+                        .IsUnique();
 
                     b.ToTable("package_action", (string)null);
                 });
@@ -444,11 +462,22 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 {
                     b.HasOne("AppliedSoftware.Models.DTOs.EmailPackageActionDto", "EmailPackageActionDto")
                         .WithMany("Attachments")
-                        .HasForeignKey("EmailPackageActionDtoPackageActionId")
+                        .HasForeignKey("EmailPackageActionDtoEmailId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("EmailPackageActionDto");
+                });
+
+            modelBuilder.Entity("AppliedSoftware.Models.DTOs.EmailPackageActionDto", b =>
+                {
+                    b.HasOne("AppliedSoftware.Models.DTOs.PackageActionDto", "PackageAction")
+                        .WithMany("Emails")
+                        .HasForeignKey("PackageActionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PackageAction");
                 });
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.GlobalPermissionDto", b =>
@@ -597,6 +626,8 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.PackageActionDto", b =>
                 {
+                    b.Navigation("Emails");
+
                     b.Navigation("TeamPermissionOverrides");
 
                     b.Navigation("UserPermissionOverrides");

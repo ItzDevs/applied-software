@@ -1,3 +1,4 @@
+using System.Net;
 using AppliedSoftware.Models.Request.Teams;
 using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,11 @@ namespace AppliedSoftware.Controllers;
 public class PackageController(
     IRepository repository) : ControllerBase
 {
+    [HttpPost]
+    public async Task<IActionResult> CreatePackage(
+        CreatePackage createPackage)
+        => (await repository.CreatePackage(createPackage)).ToResponse();
+    
     /// <summary>
     /// Gets all packages that a user has authorised access to.
     /// </summary>
@@ -20,8 +26,16 @@ public class PackageController(
     public async Task<IActionResult> GetPackages()
         => (await repository.GetPackages()).ToResponse();
     
-    [HttpPost]
-    public async Task<IActionResult> CreatePackage(
-        CreatePackage createPackage)
-        => (await repository.CreatePackage(createPackage)).ToResponse();
+    [HttpGet("{packageIdentifier}")]
+    public async Task<IActionResult> GetPackage(string packageIdentifier) 
+        => (await repository.GetPackage(packageIdentifier)).ToResponse();
+
+    [HttpGet("{packageIdentifier}/actions")]
+    public async Task<IActionResult> GetPackageActions(string packageIdentifier) =>
+        (await repository.GetPackageActions(packageIdentifier)).ToResponse();
+    
+    [HttpPost("{packageIdentifier}/actions")]
+    public async Task<IActionResult> CreatePackageAction(string packageIdentifier, CreatePackageAction createPackageAction)
+        => (await repository.CreatePackageAction(packageIdentifier, createPackageAction)).ToResponse();
+    
 }

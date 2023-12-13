@@ -14,25 +14,6 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "email_package_action",
-                columns: table => new
-                {
-                    PackageActionId = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Recipients = table.Column<string>(type: "text", nullable: true),
-                    Sender = table.Column<string>(type: "text", nullable: true),
-                    Subject = table.Column<string>(type: "text", nullable: true),
-                    Body = table.Column<string>(type: "text", nullable: true),
-                    EmailTsVector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
-                        .Annotation("Npgsql:TsVectorConfig", "english")
-                        .Annotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body" })
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("email_package_action__pk", x => x.PackageActionId);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "package",
                 columns: table => new
                 {
@@ -67,36 +48,15 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "email_attachment",
-                columns: table => new
-                {
-                    AttachmentId = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    EmailPackageActionId = table.Column<long>(type: "bigint", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    FileType = table.Column<string>(type: "text", nullable: false),
-                    FilePath = table.Column<string>(type: "text", nullable: false),
-                    EmailPackageActionDtoPackageActionId = table.Column<long>(type: "bigint", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("email_attachment__pk", x => x.AttachmentId);
-                    table.ForeignKey(
-                        name: "FK_email_attachment_email_package_action_EmailPackageActionDto~",
-                        column: x => x.EmailPackageActionDtoPackageActionId,
-                        principalTable: "email_package_action",
-                        principalColumn: "PackageActionId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "package_action",
                 columns: table => new
                 {
                     PackageActionId = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     PackageId = table.Column<long>(type: "bigint", nullable: false),
-                    PackageActionType = table.Column<int>(type: "integer", nullable: false)
+                    PackageActionType = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -176,6 +136,34 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         column: x => x.UserId,
                         principalTable: "user",
                         principalColumn: "Uid",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "email_package_action",
+                columns: table => new
+                {
+                    EmailId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    PackageActionId = table.Column<long>(type: "bigint", nullable: false),
+                    Recipients = table.Column<string>(type: "text", nullable: true),
+                    Sender = table.Column<string>(type: "text", nullable: true),
+                    Subject = table.Column<string>(type: "text", nullable: true),
+                    Body = table.Column<string>(type: "text", nullable: true),
+                    EmailTsVector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
+                        .Annotation("Npgsql:TsVectorConfig", "english")
+                        .Annotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body" }),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("email_id_action__pk", x => x.EmailId);
+                    table.ForeignKey(
+                        name: "FK_email_package_action_package_action_PackageActionId",
+                        column: x => x.PackageActionId,
+                        principalTable: "package_action",
+                        principalColumn: "PackageActionId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -269,6 +257,29 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "email_attachment",
+                columns: table => new
+                {
+                    AttachmentId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    EmailPackageActionId = table.Column<long>(type: "bigint", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    FileType = table.Column<string>(type: "text", nullable: false),
+                    FilePath = table.Column<string>(type: "text", nullable: false),
+                    EmailPackageActionDtoEmailId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("email_attachment__pk", x => x.AttachmentId);
+                    table.ForeignKey(
+                        name: "FK_email_attachment_email_package_action_EmailPackageActionDto~",
+                        column: x => x.EmailPackageActionDtoEmailId,
+                        principalTable: "email_package_action",
+                        principalColumn: "EmailId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserDtoUserGroupDto",
                 columns: table => new
                 {
@@ -348,9 +359,14 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 column: "UsersUid");
 
             migrationBuilder.CreateIndex(
-                name: "IX_email_attachment_EmailPackageActionDtoPackageActionId",
+                name: "IX_email_attachment_EmailPackageActionDtoEmailId",
                 table: "email_attachment",
-                column: "EmailPackageActionDtoPackageActionId");
+                column: "EmailPackageActionDtoEmailId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_email_package_action_PackageActionId",
+                table: "email_package_action",
+                column: "PackageActionId");
 
             migrationBuilder.CreateIndex(
                 name: "email_tsv__indx",
@@ -376,9 +392,10 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_package_action_PackageId",
+                name: "package_action_unq__indx",
                 table: "package_action",
-                column: "PackageId");
+                columns: new[] { "PackageId", "PackageActionType" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_team_PackageId",
@@ -462,10 +479,10 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 name: "user_group");
 
             migrationBuilder.DropTable(
-                name: "package_action");
+                name: "user");
 
             migrationBuilder.DropTable(
-                name: "user");
+                name: "package_action");
 
             migrationBuilder.DropTable(
                 name: "team");

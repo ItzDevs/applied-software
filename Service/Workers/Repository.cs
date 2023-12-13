@@ -142,7 +142,7 @@ public class Repository(
                 UpdatedAtUtc = DateTime.UtcNow
             };
 
-            context.Teams.Add(team);
+            await context.Teams.AddAsync(team);
             await context.SaveChangesAsync();
 
             return HttpStatusCode.Created;
@@ -520,24 +520,24 @@ public class Repository(
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
             };
-            context.UserGroups.Add(userGroup);
+            await context.UserGroups.AddAsync(userGroup);
             await context.SaveChangesAsync();
             
             return HttpStatusCode.Created;
         }
         catch (DbUpdateException ex)
         {
-            logger.LogError(ex, "Failed to create team - DbUpdateException");
+            logger.LogError(ex, "Failed to create user group - DbUpdateException");
             return new(HttpStatusCode.BadRequest,
                 new(eErrorCode.Conflict, new[]
-                    { "Failed to create a team, please ensure there is no team with the same name." }));
+                    { "Failed to create user group, please ensure there is no user group with the same name." }));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create team");
+            logger.LogError(ex, "Failed to create user group");
             return new(HttpStatusCode.InternalServerError,
                 new(eErrorCode.ServiceUnavailable, new[]
-                    { "Failed to create a team, please try again later." }));
+                    { "Failed to create a user group, please try again later." }));
         }
     }
 
@@ -597,12 +597,10 @@ public class Repository(
 
         List<UserGroupDto> grouped = [..userUserGroups, ..readUserGroups];
         grouped = grouped.DistinctBy(x => x.TeamId).ToList();
-
         foreach (var ug in grouped)
         {
-            ug.RemoveCollections();
+            ug.RemoveNavigationProperties();
         }
-        
         return grouped.Count switch
         {
             0 when authorisedIfEmpty 
@@ -655,7 +653,7 @@ public class Repository(
             
             var permissionFlag = validation.ResponseData.Body;
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-                                       permissionFlag.HasFlag(GlobalPermission.ReadTeam);
+                                       permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
 
             var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
                             groupsAsNames?.Contains(userGroupIdentifier) == true;
@@ -675,11 +673,9 @@ public class Repository(
             userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
         else
             userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
-
-        
         
         return userGroup is not null
-            ? new(HttpStatusCode.OK, userGroup.RemoveCollections())
+            ? new(HttpStatusCode.OK, userGroup.RemoveNavigationProperties())
             : new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
@@ -847,7 +843,7 @@ public class Repository(
         string userGroupIdentifier,
         bool isInternal = false)
     {
-        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        logger.LogInformation($"{nameof(GetUsersInUserGroup)}");
         
         var claims = httpContextAccessor.HttpContext?.User;
 
@@ -884,9 +880,9 @@ public class Repository(
 
             var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
                                  groupsAsNames?.Contains(userGroupIdentifier) == true;
-            // If the user does not have the global permission Administrator or ReadTeam
+            // If the user does not have the global permission Administrator or ReadUserGroup
             if (!flagPermissionsFound && 
-                // Then we need to check if the user is a member of the requested team
+                // Then we need to check if the user is a member of the requested user group
                 !userGroupFound)
             {
                 logger.LogWarning($"User {userId} does not have the required permissions to view user group");
@@ -912,7 +908,7 @@ public class Repository(
 
         foreach (var user in userGroup.Users)
         {
-            user.RemoveCollections();
+            user.RemoveNavigationProperties();
         }
         return userGroup.Users.Count > 0
             ? new(HttpStatusCode.OK,
@@ -1032,7 +1028,7 @@ public class Repository(
         string? userIds, // Comma separated list of user ids
         bool isInternal = false)
     {
-        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        logger.LogInformation($"{nameof(RemoveUsersFromUserGroup)}");
         
         var claims = httpContextAccessor.HttpContext?.User;
 
@@ -1132,11 +1128,6 @@ public class Repository(
         }
     }
     
-    public async Task<StatusContainer> CreateUserGroupOverride()
-    {
-        throw new NotImplementedException();
-    }
-    
     public async Task<StatusContainer> CreatePackage(
         CreatePackage createPackage,
         bool isInternal = false)
@@ -1185,24 +1176,24 @@ public class Repository(
                 UpdatedAtUtc = DateTime.UtcNow
             };
 
-            context.Packages.Add(package);
+            await context.Packages.AddAsync(package);
             await context.SaveChangesAsync();
 
             return HttpStatusCode.Created;
         }
         catch (DbUpdateException ex)
         {
-            logger.LogError(ex, "Failed to create team - DbUpdateException");
+            logger.LogError(ex, "Failed to create package - DbUpdateException");
             return new(HttpStatusCode.BadRequest,
                 new(eErrorCode.Conflict, new[]
-                    { "Failed to create a team, please ensure there is no team with the same name." }));
+                    { "Failed to create the package, please ensure there is no package with the same name." }));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create team");
+            logger.LogError(ex, "Failed to create package");
             return new(HttpStatusCode.InternalServerError,
                 new(eErrorCode.ServiceUnavailable, new[]
-                    { "Failed to create a team, please try again later." }));
+                    { "Failed to create the package, please try again later." }));
         }
     }
 
@@ -1266,18 +1257,249 @@ public class Repository(
 
         foreach (var package in grouped)
         {
-            package.RemoveCollections();
+            package.RemoveNavigationProperties();
         }
         return grouped.Count switch
         {
             0 when authorisedIfEmpty 
                 => new(HttpStatusCode.NotFound, 
                     error: new(eErrorCode.NotFound, new[]
-                        { "No user groups were found" })),
+                        { "No packages were found" })),
             0 => new(HttpStatusCode.Forbidden,
                 error: new(eErrorCode.Forbidden, new[]
-                    { "You do not have access to user groups.", "You are not in any user groups." })),
+                    { "You do not have access to packages.", 
+                        "You are not a member of any packages." })),
             _ => new(HttpStatusCode.OK, grouped)
         };
+    }
+
+    public async Task<StatusContainer<PackageDto>> GetPackage(
+        string packageIdentifier,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetPackage)} (packageIdentifier={packageIdentifier}; isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        var isUsingId = long.TryParse(packageIdentifier, out var packageId);
+        
+        
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+
+            var userInPackage 
+                = await GetUser(
+                    userId);
+            
+            if(!userInPackage.Success)
+                return new(userInPackage.StatusCode, 
+                    error: userInPackage.ResponseData.Error);
+
+            var packages = userInPackage.ResponseData.Body?.GetPackages().ToList();
+
+            var packagesAsIds = packages?.Select(x => x.PackageId);
+            var packagesAsNames = packages?.Select(x => x.Name);
+            
+            var permissionFlag = validation.ResponseData.Body;
+
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+
+            var packageFound = packagesAsIds?.Contains(packageId) == true || 
+                            packagesAsNames?.Contains(packageIdentifier) == true;
+            // If the user does not have the global permission Administrator or ReadPackage
+            if (!flagPermissionsFound && 
+                // Then we need to check if the user is a member of the requested package
+                !packageFound)
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to read package information");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAccess);
+            }
+        }
+
+        PackageDto? package;
+        if(isUsingId)
+            package = await context.Packages.FirstOrDefaultAsync(x => x.PackageId == packageId);
+        else
+            package = await context.Packages.FirstOrDefaultAsync(x => x.Name == packageIdentifier);
+
+        return package is not null ? 
+            new(HttpStatusCode.OK, package.RemoveNavigationProperties()) : 
+            new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested package ({packageIdentifier}) could not be found." }));
+    }
+
+    public async Task<StatusContainer> CreatePackageAction(
+        string packageIdentifier,
+        CreatePackageAction newPackageAction,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(CreatePackageAction)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+            {
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            }
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ModifyPackage)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update package (package actions)");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAction);
+            }
+        }
+        
+        var messages = new List<string>();
+        if(string.IsNullOrWhiteSpace(packageIdentifier))
+            messages.Add("Package Id is required.");
+        if(newPackageAction.PackageActionType == PackageActionType.None)
+            messages.Add("The action type must be defined.");
+
+        var isUsingId = long.TryParse(packageIdentifier, out var packageId);
+        
+        var package = isUsingId ? 
+            await context.Packages.FirstOrDefaultAsync(x => x.PackageId == packageId) : 
+            await context.Packages.FirstOrDefaultAsync(x => x.Name == packageIdentifier);
+        
+        if(package is null)
+            messages.Add("The package does not exist.");
+        
+        if(messages.Count > 0)
+            return new(HttpStatusCode.BadRequest, 
+                new(eErrorCode.ValidationError, messages));
+
+        try
+        {
+            var packageAction = new PackageActionDto
+            {
+                PackageId = (long) package?.PackageId!,
+                PackageActionType = newPackageAction.PackageActionType,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            await context.PackageActions.AddAsync(packageAction);
+            await context.SaveChangesAsync();
+            return HttpStatusCode.Created;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to create package action - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.Conflict, new[]
+                    { "Failed to create the package action, please ensure that its not duplicated." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create package action");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create the package action, please try again later." }));
+        }
+    }
+
+    public async Task<StatusContainer<IEnumerable<PackageActionDto>>> GetPackageActions(
+        string packageIdentifier,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetPackageActions)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        var isUsingId = long.TryParse(packageIdentifier, out var packageId);
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            
+            var userInPackage 
+                = await GetUser(
+                    userId);
+            
+            if(!userInPackage.Success)
+                return new(userInPackage.StatusCode, 
+                    error: userInPackage.ResponseData.Error);
+
+            var packages = userInPackage.ResponseData.Body?.GetPackages().ToList();
+
+            var packagesAsIds = packages?.Select(x => x.PackageId);
+            var packagesAsNames = packages?.Select(x => x.Name);
+
+            var permissionFlag = validation.ResponseData.Body;
+
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+
+            var packageFound = packagesAsIds?.Contains(packageId) == true || 
+                               packagesAsNames?.Contains(packageIdentifier) == true;
+            // If the user does not have the global permission Administrator or ReadPackage
+            if (!flagPermissionsFound && 
+                // Then we need to check if the user is a member of the requested package
+                !packageFound)
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAction);
+            }
+        }
+
+        PackageDto? package;
+        if(isUsingId)
+            package = await context.Packages
+                .Include(x => x.Actions)
+                .FirstOrDefaultAsync(x => x.PackageId == packageId);
+        else
+            package = await context.Packages
+                .Include(x => x.Actions)
+                .FirstOrDefaultAsync(x => x.Name == packageIdentifier);
+
+        if(package is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested package ({packageIdentifier}) could not be found." }));
+        
+        var packageActions = package.Actions;
+        foreach (var packageAction in packageActions)
+        {
+            packageAction.RemoveNavigationProperties();
+        }
+        
+        return packageActions.Count > 0 ? 
+            new(HttpStatusCode.OK, packageActions) : 
+            new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested package ({packageIdentifier}) could not be found." }));
     }
 }

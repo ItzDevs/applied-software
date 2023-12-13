@@ -80,11 +80,13 @@ public partial class ExtranetContext : DbContext
             entity.HasKey(e => e.PackageActionId).HasName("package_action__pk");
             
             entity.ToTable("package_action");
+            
+            entity.HasIndex(e => new { e.PackageId, e.PackageActionType }, "package_action_unq__indx").IsUnique();
         });
 
         modelBuilder.Entity<EmailPackageActionDto>(entity =>
         {
-            entity.HasKey(e => e.PackageActionId).HasName("email_package_action__pk");
+            entity.HasKey(e => e.EmailId).HasName("email_id_action__pk");
             
             entity.ToTable("email_package_action");
 

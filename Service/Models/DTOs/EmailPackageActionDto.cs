@@ -6,7 +6,12 @@ namespace AppliedSoftware.Models.DTOs;
 public class EmailPackageActionDto
 {
     /// <summary>
-    /// The Primary Key, this is also a Foreign Key to the PackageActionDto.
+    /// The Primary key of the email.
+    /// </summary>
+    public long EmailId { get; set; }
+    
+    /// <summary>
+    /// The Package Action Id, this is also a Foreign Key to the PackageActionDto.
     /// </summary>
     public long PackageActionId { get; set; } // PK,FK -> PackageActions.PackageActionId.
     
@@ -31,6 +36,21 @@ public class EmailPackageActionDto
     /// Allows fulltext searching to be performed on the body of the email.
     /// </summary>
     public NpgsqlTsVector EmailTsVector { get; set; } = null!;
+    
+    /// <summary>
+    /// The created timestamp.
+    /// </summary>
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// The updated timestamp.
+    /// </summary>
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// The navigation property to the package action.
+    /// </summary>
+    public PackageActionDto PackageAction { get; set; } = null!;
     
     /// <summary>
     /// The navigation property for the attachments.

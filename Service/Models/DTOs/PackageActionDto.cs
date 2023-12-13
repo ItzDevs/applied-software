@@ -22,6 +22,16 @@ public class PackageActionDto
     /// The type of package action - this can be used to determine how to deserialize the action.
     /// </summary>
     public PackageActionType PackageActionType { get; set; } = PackageActionType.None;
+ 
+    /// <summary>
+    /// The created timestamp.
+    /// </summary>
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// The updated timestamp.
+    /// </summary>
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     
     /// <summary>
     /// The package navigation object.
@@ -40,4 +50,10 @@ public class PackageActionDto
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserGroupPermissionOverrideDto> TeamPermissionOverrides { get; set; } = new List<UserGroupPermissionOverrideDto>();
+
+    /// <summary>
+    /// When the package action is <see cref="PackageActionType.Email"/> this navigation property will contain the emails.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public virtual ICollection<EmailPackageActionDto>? Emails { get; set; } = null;
 }
