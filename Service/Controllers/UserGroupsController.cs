@@ -31,6 +31,10 @@ public class UserGroupsController(
     public async Task<IActionResult> UpdateUserGroup(string userGroupIdentifier, [FromBody] CreateUserGroup updateUserGroup)
         => (await repository.UpdateUserGroup(userGroupIdentifier, updateUserGroup)).ToResponse();
     
+    [HttpDelete("{userGroupIdentifier}")]
+    public async Task<IActionResult> DeleteUserGroup(string userGroupIdentifier)
+        => (await repository.DeleteUserGroup(userGroupIdentifier)).ToResponse();
+    
     [HttpGet("{userGroupIdentifier}/users")]
     public async Task<IActionResult> GetUsersInUserGroup(string userGroupIdentifier) 
         => (await repository.GetUsersInUserGroup(userGroupIdentifier)).ToResponse();

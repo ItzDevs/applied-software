@@ -117,6 +117,16 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Delete an existing user group by the id or name if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> DeleteUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false);
+
+    /// <summary>
     /// Get users in the user group if the required permissions are granted, or return an error that can be returned to the user.
     /// </summary>
     /// <param name="userGroupIdentifier"></param>

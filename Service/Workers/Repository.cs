@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Net;
 using System.Security.Claims;
 using AppliedSoftware.Extensions;
@@ -67,33 +66,8 @@ public class Repository(
     /// A helper method to validate that a user has a global permission entry, and pass back the permission flags
     /// (or an error) that can be returned to the user.
     /// </summary>
-    /// <param name="userId"></param>
+    /// <param name="claims"></param>
     /// <returns></returns>
-    private async Task<StatusContainer<GlobalPermission>> ValidateUser(
-        string? userId)
-    {
-        logger.LogInformation($"{nameof(ValidateUser)} (userId={userId})");
-        if (string.IsNullOrWhiteSpace(userId))
-            return new(HttpStatusCode.Unauthorized,
-                error: CodeMessageResponse.Unauthorised);
-        
-
-        var getUserGlobalPermissions
-            = await GetGlobalPermissionsForUser(
-                userId);
-
-        if (!getUserGlobalPermissions.Success)
-        {
-            logger.LogWarning($"User {userId} does not have any global permissions");
-            return new(HttpStatusCode.Forbidden,
-                error: CodeMessageResponse.ForbiddenAction);
-        }
-
-        var permissionFlag = getUserGlobalPermissions.ResponseData.Body?.GrantedGlobalPermission ?? 
-                             GlobalPermission.None;
-        return new(HttpStatusCode.OK, permissionFlag);
-    }
-
     private async Task<StatusContainer<ValidatedUser>> ValidateUser(
         ClaimsPrincipal? claims)
     {
@@ -791,6 +765,7 @@ public class Repository(
         }
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer> DeleteUserGroup(
         string userGroupIdentifier,
         bool isInternal = false)
@@ -862,6 +837,7 @@ public class Repository(
         }
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<IEnumerable<UserDto>?>> GetUsersInUserGroup(
         string userGroupIdentifier,
         bool isInternal = false)
@@ -942,6 +918,7 @@ public class Repository(
                     { "There are no users in the user group." }));
     }
     
+    /// <inheritdoc />
     public async Task<StatusContainer> AddUsersToUserGroup(
         string userGroupIdentifier,
         string? userIds, // Comma separated list of user ids
@@ -1047,6 +1024,7 @@ public class Repository(
         }
     }
     
+    /// <inheritdoc />
     public async Task<StatusContainer> RemoveUsersFromUserGroup(
         string userGroupIdentifier,
         string? userIds, // Comma separated list of user ids
@@ -1152,6 +1130,7 @@ public class Repository(
         }
     }
     
+    /// <inheritdoc />
     public async Task<StatusContainer> CreatePackage(
         CreatePackage createPackage,
         bool isInternal = false)
@@ -1220,6 +1199,7 @@ public class Repository(
         }
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<IEnumerable<PackageDto>>> GetPackages(
         bool isInternal = false)
     {
@@ -1299,6 +1279,7 @@ public class Repository(
         };
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<PackageDto>> GetPackage(
         string packageIdentifier,
         bool isInternal = false)
@@ -1366,6 +1347,7 @@ public class Repository(
                     { $"The requested package ({packageIdentifier}) could not be found." }));
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer> CreatePackageAction(
         string packageIdentifier,
         CreatePackageAction newPackageAction,
@@ -1448,6 +1430,7 @@ public class Repository(
         }
     }
 
+    /// <inheritdoc />
     public async Task<StatusContainer<IEnumerable<PackageActionDto>>> GetPackageActions(
         string packageIdentifier,
         bool isInternal = false)
