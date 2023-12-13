@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Net;
+using System.Security.Claims;
 using AppliedSoftware.Extensions;
+using AppliedSoftware.Models.Validators;
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Enums;
 using AppliedSoftware.Models.Request.Teams;
@@ -92,6 +94,31 @@ public class Repository(
         return new(HttpStatusCode.OK, permissionFlag);
     }
 
+    private async Task<StatusContainer<ValidatedUser>> ValidateUser(
+        ClaimsPrincipal? claims)
+    {
+        var userId = authenticationService.ExtractUserId(claims);
+        
+        if (string.IsNullOrWhiteSpace(userId))
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+        var getUserGlobalPermissions
+            = await GetGlobalPermissionsForUser(
+                userId);
+
+        if (!getUserGlobalPermissions.Success)
+        {
+            logger.LogWarning($"User {userId} does not have any global permissions");
+            return new(HttpStatusCode.Forbidden,
+                error: CodeMessageResponse.ForbiddenAction);
+        }
+
+        var permissionFlag = getUserGlobalPermissions.ResponseData.Body?.GrantedGlobalPermission ?? 
+                             GlobalPermission.None;
+        return new(HttpStatusCode.OK, new(userId, permissionFlag));
+    }
+
     /// <inheritdoc />
     public async Task<StatusContainer> CreateTeam(
         CreateTeam newTeam,
@@ -107,14 +134,13 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     validation.ResponseData.Error);
-            
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.CreateTeam)))
             {
@@ -181,18 +207,20 @@ public class Repository(
         List<TeamDto> readTeams = []; // For if the user has read permissions for user groups as a GlobalPermission.
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
             var userInTeam 
                 = await GetUser(
                     userId);
             if(!userInTeam.Success)
                 return new(userInTeam.StatusCode, 
                     error: userInTeam.ResponseData.Error);
-            var permissionFlag = validation.ResponseData.Body;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ReadTeam)))
             { 
@@ -250,26 +278,24 @@ public class Repository(
         
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
 
             var userInTeam 
                 = await GetUser(
                     userId);
-            
             if(!userInTeam.Success)
                 return new(userInTeam.StatusCode, 
                     error: userInTeam.ResponseData.Error);
-
+            
             var teams = userInTeam.ResponseData.Body?.Teams;
-
             var teamsAsIds = teams?.Select(x => x.TeamId);
             var teamsAsNames = teams?.Select(x => x.Name);
-            
-            var permissionFlag = validation.ResponseData.Body;
 
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                        permissionFlag.HasFlag(GlobalPermission.ReadTeam);
@@ -317,15 +343,13 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
-            {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ModifyTeam)))
             {
@@ -401,15 +425,14 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
-            {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.DeleteTeam)))
             {
@@ -474,14 +497,14 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
-                    validation.ResponseData.Error);
-            
+                    error: validation.ResponseData.Error);
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.CreateUserGroup)))
             {
@@ -559,11 +582,13 @@ public class Repository(
         List<UserGroupDto> readUserGroups = []; // For if the user has read permissions for user groups as a GlobalPermission.
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             
             var userInTeam 
                 = await GetUser(
@@ -571,7 +596,6 @@ public class Repository(
             if(!userInTeam.Success)
                 return new(userInTeam.StatusCode, 
                     error: userInTeam.ResponseData.Error);
-            var permissionFlag = validation.ResponseData.Body;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                   permissionFlag.HasFlag(GlobalPermission.ReadUserGroup)))
             { 
@@ -632,11 +656,13 @@ public class Repository(
         
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
 
             var userInGroup 
                 = await GetUser(
@@ -651,7 +677,6 @@ public class Repository(
             var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
             var groupsAsNames = userGroups?.Select(x => x.Name);
             
-            var permissionFlag = validation.ResponseData.Body;
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                        permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
 
@@ -698,15 +723,14 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
-            {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
             {
@@ -782,15 +806,14 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
-            {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.DeleteUserGroup)))
             {
@@ -856,11 +879,13 @@ public class Repository(
         
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
 
             var userInGroup 
                 = await GetUser(
@@ -874,7 +899,6 @@ public class Repository(
             var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
             var groupsAsNames = userGroups?.Select(x => x.Name);
             
-            var permissionFlag = validation.ResponseData.Body;
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                        permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
 
@@ -934,13 +958,13 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
-                    validation.ResponseData.Error);
+                    error: validation.ResponseData.Error);
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
             {
@@ -1039,13 +1063,13 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
-                    validation.ResponseData.Error);
+                    error: validation.ResponseData.Error);
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
             {
@@ -1143,14 +1167,13 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
-                    validation.ResponseData.Error);
-            
+                    error: validation.ResponseData.Error);
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.CreatePackage)))
             {
@@ -1214,18 +1237,21 @@ public class Repository(
         List<PackageDto> readPackages = []; // For if the user has read permissions for user groups as a GlobalPermission.
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             var userInTeam 
                 = await GetUser(
                     userId);
+            
             if(!userInTeam.Success)
                 return new(userInTeam.StatusCode, 
                     error: userInTeam.ResponseData.Error);
-            var permissionFlag = validation.ResponseData.Body;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ReadPackage)))
             { 
@@ -1290,11 +1316,13 @@ public class Repository(
         
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
 
             var userInPackage 
                 = await GetUser(
@@ -1308,8 +1336,6 @@ public class Repository(
 
             var packagesAsIds = packages?.Select(x => x.PackageId);
             var packagesAsNames = packages?.Select(x => x.Name);
-            
-            var permissionFlag = validation.ResponseData.Body;
 
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                        permissionFlag.HasFlag(GlobalPermission.ReadPackage);
@@ -1356,15 +1382,14 @@ public class Repository(
 
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
-            {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
-            }
 
-            var permissionFlag = validation.ResponseData.Body;
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ModifyPackage)))
             {
@@ -1438,11 +1463,13 @@ public class Repository(
         var isUsingId = long.TryParse(packageIdentifier, out var packageId);
         if (!isInternal)
         {
-            var userId = authenticationService.ExtractUserId(claims);
-            var validation = await ValidateUser(userId);
-            if (!validation.Success)
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
                 return new(validation.StatusCode, 
                     error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             
             var userInPackage 
                 = await GetUser(
@@ -1456,8 +1483,6 @@ public class Repository(
 
             var packagesAsIds = packages?.Select(x => x.PackageId);
             var packagesAsNames = packages?.Select(x => x.Name);
-
-            var permissionFlag = validation.ResponseData.Body;
 
             var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                        permissionFlag.HasFlag(GlobalPermission.ReadPackage);
