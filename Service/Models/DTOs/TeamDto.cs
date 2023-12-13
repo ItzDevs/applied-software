@@ -48,16 +48,18 @@ public class TeamDto
     /// <summary>
     /// The navigation property to the team.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>
     /// All users belonging to this team, without their user groups.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserDto> Users { get; set; } = null!;
     
     /// <summary>
     /// All user groups belonging to this team, without their users.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserGroupDto> UserGroups { get; set; } = new List<UserGroupDto>();
 }

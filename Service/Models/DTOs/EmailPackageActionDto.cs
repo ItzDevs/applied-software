@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using NpgsqlTypes;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -34,5 +35,6 @@ public class EmailPackageActionDto
     /// <summary>
     /// The navigation property for the attachments.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<EmailAttachmentDto> Attachments { get; set; } = new List<EmailAttachmentDto>();
 }

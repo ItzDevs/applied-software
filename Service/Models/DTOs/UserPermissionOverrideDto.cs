@@ -64,12 +64,12 @@ public class UserPermissionOverrideDto
     /// </summary>
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual UserDto User { get; set; } = null!;
     
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageDto Package { get; set; } = null!;
     
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageActionDto? PackageAction { get; set; } = null!;
 }

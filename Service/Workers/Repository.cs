@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Net;
+using AppliedSoftware.Extensions;
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Enums;
 using AppliedSoftware.Models.Request.Teams;
@@ -244,7 +245,7 @@ public class Repository(
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
 
-        bool isUsingId = long.TryParse(teamIdentifier, out var teamId);
+        var isUsingId = long.TryParse(teamIdentifier, out var teamId);
         
         
         if (!isInternal)
@@ -597,6 +598,11 @@ public class Repository(
         List<UserGroupDto> grouped = [..userUserGroups, ..readUserGroups];
         grouped = grouped.DistinctBy(x => x.TeamId).ToList();
 
+        foreach (var ug in grouped)
+        {
+            ug.RemoveCollections();
+        }
+        
         return grouped.Count switch
         {
             0 when authorisedIfEmpty 
@@ -670,8 +676,10 @@ public class Repository(
         else
             userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
 
+        
+        
         return userGroup is not null
-            ? new(HttpStatusCode.OK, userGroup)
+            ? new(HttpStatusCode.OK, userGroup.RemoveCollections())
             : new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
@@ -835,6 +843,85 @@ public class Repository(
         }
     }
 
+    public async Task<StatusContainer<IEnumerable<UserDto>?>> GetUsersInUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        var isUsingId = long.TryParse(userGroupIdentifier, out var userGroupId);
+        
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+
+            var userInGroup 
+                = await GetUser(
+                    userId);
+            
+            if(!userInGroup.Success)
+                return new(userInGroup.StatusCode, 
+                    error: userInGroup.ResponseData.Error);
+            var userGroups = userInGroup.ResponseData.Body?.UserGroups;
+
+            var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
+            var groupsAsNames = userGroups?.Select(x => x.Name);
+            
+            var permissionFlag = validation.ResponseData.Body;
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
+
+            var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
+                                 groupsAsNames?.Contains(userGroupIdentifier) == true;
+            // If the user does not have the global permission Administrator or ReadTeam
+            if (!flagPermissionsFound && 
+                // Then we need to check if the user is a member of the requested team
+                !userGroupFound)
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to view user group");
+                return new(HttpStatusCode.Forbidden, 
+                    error: CodeMessageResponse.ForbiddenAccess);
+            }
+        }
+        
+        UserGroupDto? userGroup;
+        if(isUsingId)
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        if (userGroup is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+
+        foreach (var user in userGroup.Users)
+        {
+            user.RemoveCollections();
+        }
+        return userGroup.Users.Count > 0
+            ? new(HttpStatusCode.OK,
+                userGroup.Users)
+            : new(HttpStatusCode.NotFound, 
+                error: new(eErrorCode.EmptyResults, new[] 
+                    { "There are no users in the user group." }));
+    }
+    
     public async Task<StatusContainer> AddUsersToUserGroup(
         string userGroupIdentifier,
         string? userIds, // Comma separated list of user ids
@@ -1117,5 +1204,80 @@ public class Repository(
                 new(eErrorCode.ServiceUnavailable, new[]
                     { "Failed to create a team, please try again later." }));
         }
+    }
+
+    public async Task<StatusContainer<IEnumerable<PackageDto>>> GetPackages(
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetPackages)}");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+
+        // This allows the service to work out if the user doesn't have permission to see any teams, or if there just are none available.
+        var authorisedIfEmpty = true;
+        List<PackageDto> userPackages = [];
+        List<PackageDto> readPackages = []; // For if the user has read permissions for user groups as a GlobalPermission.
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+            var userInTeam 
+                = await GetUser(
+                    userId);
+            if(!userInTeam.Success)
+                return new(userInTeam.StatusCode, 
+                    error: userInTeam.ResponseData.Error);
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ReadPackage)))
+            { 
+                logger.LogWarning($"User {userId} does not have the required permissions to read package information");
+                authorisedIfEmpty = false; 
+            }
+            else
+            {
+                readPackages = await context.Packages
+                  .AsNoTracking()
+                  .ToListAsync();
+            }
+
+            userPackages = await context.Packages
+                .AsNoTracking()
+                .Where(x => x.Administrators.Any(y => y.Uid == userId) || 
+                            x.Teams.Any(y => y.Users.Any(z => z.Uid == userId)) ||
+                            x.Actions.Any(y => y.UserPermissionOverrides.Any(z => z.User.Uid == userId) || 
+                                               y.TeamPermissionOverrides.Any(z => z.UserGroup.Users.Any(w => w.Uid == userId))))
+                .ToListAsync();
+        }
+        else
+            readPackages = await context.Packages
+             .AsNoTracking()
+             .ToListAsync();
+
+        List<PackageDto> grouped = [..userPackages, ..readPackages];
+        grouped = grouped.DistinctBy(x => x.PackageId).ToList();
+
+        foreach (var package in grouped)
+        {
+            package.RemoveCollections();
+        }
+        return grouped.Count switch
+        {
+            0 when authorisedIfEmpty 
+                => new(HttpStatusCode.NotFound, 
+                    error: new(eErrorCode.NotFound, new[]
+                        { "No user groups were found" })),
+            0 => new(HttpStatusCode.Forbidden,
+                error: new(eErrorCode.Forbidden, new[]
+                    { "You do not have access to user groups.", "You are not in any user groups." })),
+            _ => new(HttpStatusCode.OK, grouped)
+        };
     }
 }

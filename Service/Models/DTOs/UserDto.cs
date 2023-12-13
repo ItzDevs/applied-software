@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using FirebaseAdmin.Auth;
 
 namespace AppliedSoftware.Models.DTOs;
@@ -61,26 +62,31 @@ public class UserDto
     /// <summary>
     /// The navigation property for the user's global permission.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual GlobalPermissionDto GlobalPermission { get; set; } = null!;
     
     /// <summary>
     /// The navigation property for the packages the user is an administrator of.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<PackageDto> PackageAdministrator { get; set; } = new List<PackageDto>();
     
     /// <summary>
     /// The navigation property for the packages the user is a member of.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<TeamDto> Teams { get; set; } = new List<TeamDto>();
     
     /// <summary>
     /// The navigation property for the packages the users permission "user groups".
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserGroupDto> UserGroups { get; set; } = new List<UserGroupDto>();
     
     /// <summary>
     /// The navigation property for the packages the users permission overrides (individual users).
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserPermissionOverrideDto> UserPermissionOverrides { get; set; } = new List<UserPermissionOverrideDto>();
 
 }

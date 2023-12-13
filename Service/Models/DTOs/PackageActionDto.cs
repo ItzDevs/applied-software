@@ -26,16 +26,18 @@ public class PackageActionDto
     /// <summary>
     /// The package navigation object.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>
     /// The overrides for the package action.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserPermissionOverrideDto> UserPermissionOverrides { get; set; } = new List<UserPermissionOverrideDto>();
     
     /// <summary>
     /// The overrides for the package action.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserGroupPermissionOverrideDto> TeamPermissionOverrides { get; set; } = new List<UserGroupPermissionOverrideDto>();
 }

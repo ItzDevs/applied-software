@@ -56,11 +56,12 @@ public class UserGroupDto
     /// <summary>
     /// The Team navigation property
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual TeamDto Team { get; set; } = null!;
     
     /// <summary>
     ///  The users in the user group.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual ICollection<UserDto> Users { get; set; } = new List<UserDto>();
 }

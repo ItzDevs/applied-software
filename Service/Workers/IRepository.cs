@@ -117,6 +117,16 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Get users in the user group if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<IEnumerable<UserDto>?>> GetUsersInUserGroup(
+        string userGroupIdentifier,
+        bool isInternal = false);
+    
+    /// <summary>
     /// Adds a list of user ids to a user group if the required permissions are granted, or return an error that can be returned to the user.
     /// </summary>
     /// <param name="userGroupIdentifier"></param>
@@ -124,6 +134,18 @@ public interface IRepository
     /// <param name="isInternal"></param>
     /// <returns></returns>
     Task<StatusContainer> AddUsersToUserGroup(
+        string userGroupIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false);
+
+    /// <summary>
+    /// Removes a list of user ids from a user group if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="userGroupIdentifier"></param>
+    /// <param name="userIds"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> RemoveUsersFromUserGroup(
         string userGroupIdentifier,
         string? userIds, // Comma separated list of user ids
         bool isInternal = false);
@@ -136,5 +158,13 @@ public interface IRepository
     /// <returns></returns>
     Task<StatusContainer> CreatePackage(
         CreatePackage createPackage,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Get packages if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<IEnumerable<PackageDto>>> GetPackages(
         bool isInternal = false);
 }

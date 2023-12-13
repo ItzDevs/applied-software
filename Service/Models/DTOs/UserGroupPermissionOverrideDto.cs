@@ -66,18 +66,18 @@ public class UserGroupPermissionOverrideDto
     /// <summary>
     /// The user group this override applies to.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual UserGroupDto UserGroup { get; set; } = null!;
 
     /// <summary>
     /// The package this override applies to, this will be used when <see cref="PackageAction"/> is null.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageDto Package { get; set; } = null!;
     
     /// <summary>
     /// The package action this override applies to, this property takes precedence over <see cref="Package"/>.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public virtual PackageActionDto? PackageAction { get; set; } = null!;
 }

@@ -35,6 +35,6 @@ public class EmailAttachmentDto
     /// <summary>
     /// The navigation property to the email package action.
     /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EmailPackageActionDto EmailPackageActionDto { get; set; } = null!;
 }

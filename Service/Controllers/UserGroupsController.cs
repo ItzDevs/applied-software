@@ -31,7 +31,17 @@ public class UserGroupsController(
     public async Task<IActionResult> UpdateUserGroup(string userGroupIdentifier, [FromBody] CreateUserGroup updateUserGroup)
         => (await repository.UpdateUserGroup(userGroupIdentifier, updateUserGroup)).ToResponse();
     
-    [HttpPut("{userGroupIdentifier}/users")]
+    [HttpGet("{userGroupIdentifier}/users")]
+    public async Task<IActionResult> GetUsersInUserGroup(string userGroupIdentifier) 
+        => (await repository.GetUsersInUserGroup(userGroupIdentifier)).ToResponse();
+    
+    [HttpPut("{userGroupIdentifier}/users/add")]
     public async Task<IActionResult> AddUsersToUserGroup(string userGroupIdentifier, string? userIds)
         => (await repository.AddUsersToUserGroup(userGroupIdentifier, userIds)).ToResponse();
+    
+    [HttpPut("{userGroupIdentifier}/users/remove")]
+    public async Task<IActionResult> RemoveUsersFromUserGroup(string userGroupIdentifier, string? userIds)
+        => (await repository.RemoveUsersFromUserGroup(userGroupIdentifier, userIds)).ToResponse();
+    
+    
 }
