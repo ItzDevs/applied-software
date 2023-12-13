@@ -940,6 +940,111 @@ public class Repository(
         }
     }
     
+    public async Task<StatusContainer> RemoveUsersFromUserGroup(
+        string userGroupIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+
+        if (!isInternal)
+        {
+            var userId = authenticationService.ExtractUserId(claims);
+            var validation = await ValidateUser(userId);
+            if (!validation.Success)
+                return new(validation.StatusCode, 
+                    validation.ResponseData.Error);
+
+            var permissionFlag = validation.ResponseData.Body;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(userIds))
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new []
+                    { "User ids cannot be empty." }));
+        
+        var userIdsList = userIds.Replace(" ", "").Split(',').ToList();
+
+        UserGroupDto? userGroup;
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        else
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+
+        if (userGroup is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+        var currentUsersInGroup = userGroup.Users.Select(x => x.Uid).ToList();
+        // Filter out any users that are already in the group.
+        userIdsList = userIdsList.Where(x => currentUsersInGroup.Contains(x)).ToList();
+
+        // Check that we have some users to remove.
+        if (userIdsList.Count == 0) 
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.NothingToUpdate, new[]
+                    { "None of the users were in the group." }));
+        var failedUsers = new List<string>();
+        try
+        {
+            foreach (var userId in userIdsList)
+            {
+                var user = await context.Users.FirstOrDefaultAsync(x => x.Uid == userId);
+                // If the user id isn't in the database we add it to our failed users list.
+                if (user is null)
+                {
+                    logger.LogWarning($"User with id {userId} was not found.");
+                    failedUsers.Add(userId);
+                    continue;
+                }
+
+                user.UserGroups.Remove(userGroup);
+            }
+            await context.SaveChangesAsync();
+
+            if (failedUsers.Count > 0)
+            {
+                return new(HttpStatusCode.BadRequest, 
+                    error: new(eErrorCode.ValidationError, 
+                        failedUsers.Select(x => $"User with id {x} was not found.").ToArray()));
+            }
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not remove users from user group");
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.BadRequest, new[]
+                    { "Failed to add users to the user group." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not add users to user group");
+            return new(HttpStatusCode.InternalServerError,
+                error: new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to add users to the user group.",
+                      "An unknown error occurred." }));
+        }
+    }
+    
     public async Task<StatusContainer> CreateUserGroupOverride()
     {
         throw new NotImplementedException();
