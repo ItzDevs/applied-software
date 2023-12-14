@@ -4,8 +4,9 @@ using AppliedSoftware.Extensions;
 using AppliedSoftware.Models.Validators;
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Enums;
-using AppliedSoftware.Models.Request.Teams;
+using AppliedSoftware.Models.Request;
 using AppliedSoftware.Models.Response;
+using AppliedSoftware.Models.Response.PackageActionsAct;
 using AppliedSoftware.Workers.EFCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -1129,17 +1130,15 @@ public class Repository(
             return new(HttpStatusCode.BadRequest,
                 new(eErrorCode.ValidationError, new[] 
                     { "A package name must be provided." }));
-
         try
         {
-            var package = new PackageDto()
+            var package = new PackageDto
             {
                 Name = createPackage.Name,
                 Description = createPackage.Description,
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
             };
-
             await context.Packages.AddAsync(package);
             await context.SaveChangesAsync();
 
@@ -1465,7 +1464,7 @@ public class Repository(
         string packageActionIdentifier,
         bool isInternal = false) // Email / Search / Id
     {
-        logger.LogInformation($"{nameof(GetPackageActions)} (isInternal={isInternal})");
+        logger.LogInformation($"{nameof(GetPackageAction)} (isInternal={isInternal})");
         var claims = httpContextAccessor.HttpContext?.User;
 
         // Authentication
@@ -1538,5 +1537,106 @@ public class Repository(
          logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
          return new(HttpStatusCode.Forbidden, 
              error: CodeMessageResponse.ForbiddenAction);
+    }
+
+    public async Task<StatusContainer<ActionResponse>> ActOnPackageAction(
+        string packageIdentifier, 
+        string packageActionIdentifier, 
+        ActPackageAction act, 
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(GetPackageAction)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+        var isPackageUsingId = long.TryParse(packageIdentifier, out var packageId);
+        var isPackageActionsUsingId = long.TryParse(packageActionIdentifier, out var packageActionId);
+
+        var isPackageActionsUsingEnum =
+            Enum.TryParse<PackageActionType>(packageActionIdentifier, out var packageActionType);
+        
+        if (!isPackageActionsUsingId && // If its not using the package action id 
+            !isPackageActionsUsingEnum)
+        {
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.ValidationError, new[]
+                    { "The package action identifier is not valid." }));
+        }
+        
+        PackageActionDto? packageAction;
+        if(isPackageActionsUsingId)
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.PackageActionId == packageActionId);
+        else if (isPackageUsingId)
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.Package.PackageId == packageId &&
+                                          x.PackageActionType == packageActionType);
+        else
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.Package.Name == packageIdentifier &&
+                                          x.PackageActionType == packageActionType);
+
+        if(packageAction is null || 
+           // Not only checking if the package exists, but also that the provided packageIdentifier in 
+           // the endpoint is correct for the package action.
+           (packageAction.Package.PackageId != packageId && 
+            !packageAction.Package.Name.Equals(packageIdentifier)))
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested package action ({packageActionIdentifier}) for the package ({packageIdentifier}) could not be found." }));
+
+        // Validation on the action
+        var messages = new List<string>();
+        if(!Enum.TryParse<ActAction>(act.Action, out var actAction) || 
+           actAction == ActAction.None)
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new[] 
+                    { "Invalid action provided." }));
+
+        var valid = false;
+        
+        
+        switch (actAction)
+        {
+            // Current Search internally redirects to ViewEmail
+            case ActAction.Search:
+            case ActAction.ViewEmail:
+                if(!string.IsNullOrWhiteSpace(act.Email?.SearchEmailContent))
+                    valid = true;
+                break;
+            case ActAction.Upload:
+                if (act.Email?.File is not null && 
+                    act.Email.File.Length > 0)
+                    valid = true;
+                break;
+            case ActAction.AppendAttachment:
+                if(act.Email?.AttachmentBytes is not null && 
+                   act.Email.AttachmentBytes.Length > 0 && 
+                   !string.IsNullOrWhiteSpace(act.Email.EmailIdentifier))
+                    valid = true;
+                break;
+            case ActAction.Remove:
+                if (!string.IsNullOrWhiteSpace(act.Email?.EmailIdentifier))
+                    valid = true;
+                break;
+            case ActAction.None: // Unreachable
+            default:
+                throw new ArgumentOutOfRangeException(nameof(act.Action));
+        }
+        
+        
+        if(!valid)
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new[] 
+                    { $"Invalid data for action ({act.Action}) provided." }));
+        
+        throw new NotImplementedException();
     }
 }

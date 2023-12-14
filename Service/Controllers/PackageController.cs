@@ -1,5 +1,5 @@
 using System.Net;
-using AppliedSoftware.Models.Request.Teams;
+using AppliedSoftware.Models.Request;
 using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,4 +41,8 @@ public class PackageController(
     [HttpGet("{packageIdentifier}/actions/{packageActionIdentifier}")]
     public async Task<IActionResult> GetPackageAction(string packageIdentifier, string packageActionIdentifier)
         => (await repository.GetPackageAction(packageIdentifier, packageActionIdentifier)).ToResponse();
+    
+    [HttpPost("{packageIdentifier}/actions/{packageActionIdentifier}/act")]
+    public async Task<IActionResult> Act(ActPackageAction packageAction) 
+        => StatusCode((int)HttpStatusCode.NotImplemented);
 }

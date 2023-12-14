@@ -1,5 +1,5 @@
 using AppliedSoftware.Models.DTOs;
-using AppliedSoftware.Models.Request.Teams;
+using AppliedSoftware.Models.Request;
 using AppliedSoftware.Models.Response;
 
 namespace AppliedSoftware.Workers;

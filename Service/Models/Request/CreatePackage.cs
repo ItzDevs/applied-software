@@ -1,4 +1,4 @@
-namespace AppliedSoftware.Models.Request.Teams;
+namespace AppliedSoftware.Models.Request;
 
 public class CreatePackage
 {

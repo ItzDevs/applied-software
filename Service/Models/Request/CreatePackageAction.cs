@@ -1,6 +1,6 @@
 using AppliedSoftware.Models.Enums;
 
-namespace AppliedSoftware.Models.Request.Teams;
+namespace AppliedSoftware.Models.Request;
 
 public class CreatePackageAction
 {

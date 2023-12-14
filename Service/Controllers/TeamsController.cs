@@ -1,4 +1,4 @@
-using AppliedSoftware.Models.Request.Teams;
+using AppliedSoftware.Models.Request;
 using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
