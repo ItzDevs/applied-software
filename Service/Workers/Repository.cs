@@ -174,7 +174,7 @@ public class Repository(
         if (claims is null && !isInternal)
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
-
+        
         // This allows the service to work out if the user doesn't have permission to see any teams, or if there just are none available.
         var authorisedIfEmpty = true;
         List<TeamDto> userTeams = [];
@@ -189,12 +189,6 @@ public class Repository(
             var userId = validation.ResponseData.Body.UserId;
             var permissionFlag = validation.ResponseData.Body.PermissionFlag;
 
-            var userInTeam 
-                = await GetUser(
-                    userId);
-            if(!userInTeam.Success)
-                return new(userInTeam.StatusCode, 
-                    error: userInTeam.ResponseData.Error);
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
                   permissionFlag.HasFlag(GlobalPermission.ReadTeam)))
             { 
@@ -202,12 +196,11 @@ public class Repository(
                 authorisedIfEmpty = false; 
             }
             else
-            {
                 readTeams = await context.Teams
                   .AsNoTracking()
                   .Where(x => !x.Deleted)
                   .ToListAsync();
-            }
+            
 
             userTeams = await context.Teams
                 .AsNoTracking()
@@ -246,58 +239,47 @@ public class Repository(
         if (claims is null && !isInternal)
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
-
-        var isUsingId = long.TryParse(teamIdentifier, out var teamId);
         
-        
-        if (!isInternal)
-        {
-            var validation = await ValidateUser(claims);
-            if (!validation.Success || validation.ResponseData.Body is null)
-                return new(validation.StatusCode, 
-                    error: validation.ResponseData.Error);
-
-            var userId = validation.ResponseData.Body.UserId;
-            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
-
-            var userInTeam 
-                = await GetUser(
-                    userId);
-            if(!userInTeam.Success)
-                return new(userInTeam.StatusCode, 
-                    error: userInTeam.ResponseData.Error);
-            
-            var teams = userInTeam.ResponseData.Body?.Teams;
-            var teamsAsIds = teams?.Select(x => x.TeamId);
-            var teamsAsNames = teams?.Select(x => x.Name);
-
-            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-                                       permissionFlag.HasFlag(GlobalPermission.ReadTeam);
-
-            var teamFound = teamsAsIds?.Contains(teamId) == true || 
-                            teamsAsNames?.Contains(teamIdentifier) == true;
-            // If the user does not have the global permission Administrator or ReadTeam
-            if (!flagPermissionsFound && 
-                // Then we need to check if the user is a member of the requested team
-                !teamFound)
-            {
-                logger.LogWarning($"User {userId} does not have the required permissions to read team information");
-                return new(HttpStatusCode.Forbidden, 
-                    error: CodeMessageResponse.ForbiddenAccess);
-            }
-        }
-
         TeamDto? team;
-        if(isUsingId)
-            team = await context.Teams.FirstOrDefaultAsync(x => x.TeamId == teamId);
+        if(long.TryParse(teamIdentifier, out var teamId))
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.TeamId == teamId);
         else
-            team = await context.Teams.FirstOrDefaultAsync(x => x.Name == teamIdentifier);
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == teamIdentifier);
 
-        return team is not null
-            ? new(HttpStatusCode.OK, team)
-            : new(HttpStatusCode.NotFound,
+        if (team is null)
+            return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
-                    { $"The requested team ({teamIdentifier}) could not be found." }));
+                    { $"The requested team ({teamIdentifier}) was not found." }));
+
+        if (isInternal) 
+            return new(HttpStatusCode.OK, team);
+        
+        var validation = await ValidateUser(claims);
+        if (!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
+
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
+        var userInTeam 
+            = team.Users.FirstOrDefault(x => x.Uid == userId);
+
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadTeam);
+        // If the user does not have the global permission Administrator or ReadTeam
+        if (flagPermissionsFound ||
+            // Then we need to check if the user is a member of the requested team
+            userInTeam is not null)
+            return new(HttpStatusCode.OK, team);
+        
+        logger.LogWarning($"User {userId} does not have the required permissions to read team information");
+        return new(HttpStatusCode.Forbidden, 
+            error: CodeMessageResponse.ForbiddenAccess);
     }
 
     /// <inheritdoc />
@@ -428,7 +410,6 @@ public class Repository(
             return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested team ({teamIdentifier}) could not be found." }));
-
         try
         {
             team.Deleted = true;
@@ -448,7 +429,6 @@ public class Repository(
         catch (Exception ex)
         {
             logger.LogError(ex, "Could not delete user group");
-            
             return new(HttpStatusCode.InternalServerError, 
                 error: new(eErrorCode.ServiceUnavailable, new[] 
                 { "Failed to delete team.", 
@@ -519,7 +499,6 @@ public class Repository(
             };
             await context.UserGroups.AddAsync(userGroup);
             await context.SaveChangesAsync();
-            
             return HttpStatusCode.Created;
         }
         catch (DbUpdateException ex)
@@ -625,59 +604,48 @@ public class Repository(
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
 
-        var isUsingId = long.TryParse(userGroupIdentifier, out var userGroupId);
-        
-        
-        if (!isInternal)
-        {
-            var validation = await ValidateUser(claims);
-            if (!validation.Success || validation.ResponseData.Body is null)
-                return new(validation.StatusCode, 
-                    error: validation.ResponseData.Error);
-
-            var userId = validation.ResponseData.Body.UserId;
-            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
-
-            var userInGroup 
-                = await GetUser(
-                    userId);
-            
-            if(!userInGroup.Success)
-                return new(userInGroup.StatusCode, 
-                    error: userInGroup.ResponseData.Error);
-
-            var userGroups = userInGroup.ResponseData.Body?.UserGroups;
-
-            var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
-            var groupsAsNames = userGroups?.Select(x => x.Name);
-            
-            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-                                       permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
-
-            var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
-                            groupsAsNames?.Contains(userGroupIdentifier) == true;
-            // If the user does not have the global permission Administrator or ReadTeam
-            if (!flagPermissionsFound && 
-                // Then we need to check if the user is a member of the requested team
-                !userGroupFound)
-            {
-                logger.LogWarning($"User {userId} does not have the required permissions to read group information");
-                return new(HttpStatusCode.Forbidden, 
-                    error: CodeMessageResponse.ForbiddenAccess);
-            }
-        }
-
         UserGroupDto? userGroup;
-        if(isUsingId)
-            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
         else
-            userGroup = await context.UserGroups.FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
+            userGroup = await context.UserGroups
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
         
-        return userGroup is not null
-            ? new(HttpStatusCode.OK, userGroup.RemoveNavigationProperties())
-            : new(HttpStatusCode.NotFound,
+        if(userGroup is null)
+            return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
-                    { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+                    { "The user group was not found" }));
+
+        if (isInternal)
+            return new(HttpStatusCode.OK,
+                userGroup.RemoveNavigationProperties());
+        
+        var validation = await ValidateUser(claims);
+        if (!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
+
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
+        var userInGroup = userGroup.Users.FirstOrDefault(x => x.Uid == userId);
+            
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
+
+        // If the user does not have the global permission Administrator or ReadTeam
+        if (flagPermissionsFound ||
+            // Then we need to check if the user is a member of the requested team
+            userInGroup is not null)
+            return new(HttpStatusCode.OK,
+                userGroup.RemoveNavigationProperties());
+        
+        logger.LogWarning($"User {userId} does not have the required permissions to read group information");
+        return new(HttpStatusCode.Forbidden, 
+            error: CodeMessageResponse.ForbiddenAccess);
     }
 
     /// <inheritdoc />
@@ -851,48 +819,8 @@ public class Repository(
             return new(HttpStatusCode.Unauthorized,
                 error: CodeMessageResponse.Unauthorised);
 
-        var isUsingId = long.TryParse(userGroupIdentifier, out var userGroupId);
-        
-        if (!isInternal)
-        {
-            var validation = await ValidateUser(claims);
-            if (!validation.Success || validation.ResponseData.Body is null)
-                return new(validation.StatusCode, 
-                    error: validation.ResponseData.Error);
-
-            var userId = validation.ResponseData.Body.UserId;
-            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
-
-            var userInGroup 
-                = await GetUser(
-                    userId);
-            
-            if(!userInGroup.Success)
-                return new(userInGroup.StatusCode, 
-                    error: userInGroup.ResponseData.Error);
-            var userGroups = userInGroup.ResponseData.Body?.UserGroups;
-
-            var groupsAsIds = userGroups?.Select(x => x.UserGroupId);
-            var groupsAsNames = userGroups?.Select(x => x.Name);
-            
-            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-                                       permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
-
-            var userGroupFound = groupsAsIds?.Contains(userGroupId) == true || 
-                                 groupsAsNames?.Contains(userGroupIdentifier) == true;
-            // If the user does not have the global permission Administrator or ReadUserGroup
-            if (!flagPermissionsFound && 
-                // Then we need to check if the user is a member of the requested user group
-                !userGroupFound)
-            {
-                logger.LogWarning($"User {userId} does not have the required permissions to view user group");
-                return new(HttpStatusCode.Forbidden, 
-                    error: CodeMessageResponse.ForbiddenAccess);
-            }
-        }
-        
         UserGroupDto? userGroup;
-        if(isUsingId)
+        if(long.TryParse(userGroupIdentifier, out var userGroupId))
             userGroup = await context.UserGroups
                 .Include(x => x.Users)
                 .FirstOrDefaultAsync(x => x.UserGroupId == userGroupId);
@@ -901,21 +829,55 @@ public class Repository(
                 .Include(x => x.Users)
                 .FirstOrDefaultAsync(x => x.Name == userGroupIdentifier);
 
-        if (userGroup is null)
+        if(userGroup is null)
             return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
+        
+        if (!isInternal)
+        {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
+                return new(validation.StatusCode,
+                    error: validation.ResponseData.Error);
 
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
+            var userInGroup = userGroup.Users.FirstOrDefault(x => x.Uid == userId);
+
+            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                       permissionFlag.HasFlag(GlobalPermission.ReadUserGroup);
+
+            // If the user does not have the global permission Administrator or ReadUserGroup
+            if (flagPermissionsFound ||
+                // Then we need to check if the user is a member of the requested user group
+                userInGroup is not null)
+            {
+                foreach (var user in userGroup.Users)
+                {
+                    user.RemoveNavigationProperties();
+                }
+
+                return userGroup.Users.Count > 0 ?
+                    new(HttpStatusCode.OK, userGroup.Users) :
+                    new(HttpStatusCode.NotFound, error: new(eErrorCode.NotFound, new[] 
+                        { "No users were found in the user group." }));
+            }
+
+            logger.LogWarning($"User {userId} does not have the required permissions to view user group");
+            return new(HttpStatusCode.Forbidden,
+                error: CodeMessageResponse.ForbiddenAccess);
+        }
         foreach (var user in userGroup.Users)
         {
             user.RemoveNavigationProperties();
         }
-        return userGroup.Users.Count > 0
-            ? new(HttpStatusCode.OK,
-                userGroup.Users)
-            : new(HttpStatusCode.NotFound, 
-                error: new(eErrorCode.EmptyResults, new[] 
-                    { "There are no users in the user group." }));
+
+        return userGroup.Users.Count > 0 ?
+            new(HttpStatusCode.OK, userGroup.Users) :
+            new(HttpStatusCode.NotFound, error: new(eErrorCode.NotFound, new[] 
+                { "No users were found in the user group." }));
     }
     
     /// <inheritdoc />
@@ -1294,57 +1256,44 @@ public class Repository(
 
         var isUsingId = long.TryParse(packageIdentifier, out var packageId);
         
-        
-        if (!isInternal)
-        {
-            var validation = await ValidateUser(claims);
-            if (!validation.Success || validation.ResponseData.Body is null)
-                return new(validation.StatusCode, 
-                    error: validation.ResponseData.Error);
-
-            var userId = validation.ResponseData.Body.UserId;
-            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
-
-            var userInPackage 
-                = await GetUser(
-                    userId);
-            
-            if(!userInPackage.Success)
-                return new(userInPackage.StatusCode, 
-                    error: userInPackage.ResponseData.Error);
-
-            var packages = userInPackage.ResponseData.Body?.GetPackages().ToList();
-
-            var packagesAsIds = packages?.Select(x => x.PackageId);
-            var packagesAsNames = packages?.Select(x => x.Name);
-
-            var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-                                       permissionFlag.HasFlag(GlobalPermission.ReadPackage);
-
-            var packageFound = packagesAsIds?.Contains(packageId) == true || 
-                            packagesAsNames?.Contains(packageIdentifier) == true;
-            // If the user does not have the global permission Administrator or ReadPackage
-            if (!flagPermissionsFound && 
-                // Then we need to check if the user is a member of the requested package
-                !packageFound)
-            {
-                logger.LogWarning($"User {userId} does not have the required permissions to read package information");
-                return new(HttpStatusCode.Forbidden, 
-                    error: CodeMessageResponse.ForbiddenAccess);
-            }
-        }
-
         PackageDto? package;
         if(isUsingId)
             package = await context.Packages.FirstOrDefaultAsync(x => x.PackageId == packageId);
         else
             package = await context.Packages.FirstOrDefaultAsync(x => x.Name == packageIdentifier);
-
-        return package is not null ? 
-            new(HttpStatusCode.OK, package.RemoveNavigationProperties()) : 
-            new(HttpStatusCode.NotFound,
+        
+        if (package is null)
+            return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
-                    { $"The requested package ({packageIdentifier}) could not be found." }));
+                    { "The package was not found." }));
+
+        if (isInternal)
+            return new(HttpStatusCode.OK, package.RemoveNavigationProperties());
+        
+        var validation = await ValidateUser(claims);
+        if (!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
+
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
+        var userInPackage
+            = package.UserInPackage(userId);
+        
+
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+
+        // If the user does not have the global permission Administrator or ReadPackage
+        if (flagPermissionsFound ||
+            // Then we need to check if the user is a member of the requested package
+            userInPackage)
+            return new(HttpStatusCode.OK, package.RemoveNavigationProperties());
+        
+        logger.LogWarning($"User {userId} does not have the required permissions to read package information");
+        return new(HttpStatusCode.Forbidden, 
+            error: CodeMessageResponse.ForbiddenAccess);
     }
 
     /// <inheritdoc />
@@ -1509,5 +1458,85 @@ public class Repository(
             new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested package ({packageIdentifier}) could not be found." }));
+    }
+
+    public async Task<StatusContainer<PackageActionDto>> GetPackageAction(
+        string packageIdentifier,
+        string packageActionIdentifier,
+        bool isInternal = false) // Email / Search / Id
+    {
+        logger.LogInformation($"{nameof(GetPackageActions)} (isInternal={isInternal})");
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+        var isPackageUsingId = long.TryParse(packageIdentifier, out var packageId);
+        var isPackageActionsUsingId = long.TryParse(packageActionIdentifier, out var packageActionId);
+
+        var isPackageActionsUsingEnum =
+            Enum.TryParse<PackageActionType>(packageActionIdentifier, out var packageActionType);
+        
+        if (!isPackageActionsUsingId && // If its not using the package action id 
+            !isPackageActionsUsingEnum)
+        {
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.ValidationError, new[]
+                    { "The package action identifier is not valid." }));
+        }
+        
+        PackageActionDto? packageAction;
+        if(isPackageActionsUsingId)
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.PackageActionId == packageActionId);
+        else if (isPackageUsingId)
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.Package.PackageId == packageId &&
+                                          x.PackageActionType == packageActionType);
+        else
+            packageAction = await context.PackageActions
+                .Include(x => x.Package)
+                .FirstOrDefaultAsync(x => x.Package.Name == packageIdentifier &&
+                                          x.PackageActionType == packageActionType);
+
+        if(packageAction is null || 
+           // Not only checking if the package exists, but also that the provided packageIdentifier in 
+           // the endpoint is correct for the package action.
+           (packageAction.Package.PackageId != packageId && 
+            !packageAction.Package.Name.Equals(packageIdentifier)))
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested package action ({packageActionIdentifier}) for the package ({packageIdentifier}) could not be found." }));
+        
+        if (isInternal) 
+            return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
+        
+        var validation = await ValidateUser(claims);
+        if (!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
+
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+
+
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+        // NOTE: This does not check for permission overrides.
+        var userInPackage = packageAction.UserInPackageAction(userId);
+        
+         // If the user does not have the global permission Administrator or ReadPackage
+         if (flagPermissionsFound ||
+             // Then we need to check if the user is a member of the requested package
+             userInPackage) 
+             return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
+         
+         logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
+         return new(HttpStatusCode.Forbidden, 
+             error: CodeMessageResponse.ForbiddenAction);
     }
 }

@@ -201,12 +201,24 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
-    /// Get package actions if the required permissions are granted, or return an error that can be returned to the
+    /// Get package actions if the required permissions are granted, or return an error that can be returned to the user.
     /// </summary>
     /// <param name="packageIdentifier"></param>
     /// <param name="isInternal"></param>
     /// <returns></returns>
     Task<StatusContainer<IEnumerable<PackageActionDto>>> GetPackageActions(
         string packageIdentifier,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Get a package action by the id or name if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="packageIdentifier"></param>
+    /// <param name="packageActionIdentifier"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<PackageActionDto>> GetPackageAction(
+        string packageIdentifier,
+        string packageActionIdentifier,
         bool isInternal = false);
 }

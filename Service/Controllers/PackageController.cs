@@ -38,4 +38,7 @@ public class PackageController(
     public async Task<IActionResult> CreatePackageAction(string packageIdentifier, CreatePackageAction createPackageAction)
         => (await repository.CreatePackageAction(packageIdentifier, createPackageAction)).ToResponse();
     
+    [HttpGet("{packageIdentifier}/actions/{packageActionIdentifier}")]
+    public async Task<IActionResult> GetPackageAction(string packageIdentifier, string packageActionIdentifier)
+        => (await repository.GetPackageAction(packageIdentifier, packageActionIdentifier)).ToResponse();
 }
