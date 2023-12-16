@@ -1628,20 +1628,26 @@ public class Repository(
                 if (act.Email?.File is null ||
                     act.Email.File.Length == 0)
                     break;
-                var response = await UploadEmail(packageAction, act.Email.File);
-                if(!response.Success)
-                    return new(response.StatusCode, 
-                        error: response.Error);
+                var uploadResponse = await UploadEmail(packageAction, act.Email.File);
+                if(!uploadResponse.Success)
+                    return new(uploadResponse.StatusCode, 
+                        error: uploadResponse.Error);
                 valid = true;
                 break;
-            case ActAction.AddAttachment:
-                if(act.Email?.AttachmentBytes is not null && 
-                   act.Email.AttachmentBytes.Length > 0 && 
-                   !string.IsNullOrWhiteSpace(act.Email.EmailIdentifier))
-                    valid = true;
+            case ActAction.AddAttachments:
+                if (act.Email?.Attachments is null ||
+                    act.Email.Attachments.Length == 0 ||
+                    act.Email.EmailId is null)
+                    break;
+
+                var addAttachments = await AddAttachments(act.Email.EmailId, act.Email.Attachments);
+                if(!addAttachments.Success)
+                    return new(addAttachments.StatusCode, 
+                        error: addAttachments.Error);
+                valid = true;
                 break; 
             case ActAction.Remove:
-                if (!string.IsNullOrWhiteSpace(act.Email?.EmailIdentifier))
+                if (act.Email?.EmailId is not null)
                     valid = true;
                 break;
             case ActAction.None: // Unreachable
@@ -1713,6 +1719,65 @@ public class Repository(
             await context.EmailPackageActions.AddAsync(emailDto);
             await context.SaveChangesAsync();
 
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to save email - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.BadRequest, new[]
+                    { "Failed to save the email, please check the data again." }));
+        }
+        catch (IOException ex)
+        {
+            logger.LogError(ex, "Failed to save email - IOException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "Failed to save one or more attachments." }));
+        }
+        catch (FormatException ex)
+        {
+            logger.LogError(ex, "Failed to save email - FormatException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "The uploaded file was not in Email format (.eml)." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create package");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create the package, please try again later." }));
+        }
+    }
+
+    private async Task<StatusContainer> AddAttachments(
+        long? emailId,
+        IEnumerable<EmailAttachment> attachments)
+    {
+        try
+        {
+            var emailAction =
+                await context.EmailPackageActions
+                    .FirstOrDefaultAsync(x => x.EmailId == emailId);
+
+            if (emailAction is null)
+                return HttpStatusCode.NotFound;
+
+            foreach (var attachment in attachments)
+            {
+                var file = File.Create(Path.Combine(settings.CdnPath, $"{Guid.NewGuid()}__{attachment.Name}"));
+                await file.WriteAsync(attachment.AttachmentBytes);
+                var attachmentDto = new EmailAttachmentDto
+                {
+                    EmailPackageActionId = emailAction.EmailId,
+                    Name = attachment.Name,
+                    FileType = attachment.MimeType,
+                    FilePath = file.Name
+                };
+                emailAction.Attachments.Add(attachmentDto);
+            }
+            await context.SaveChangesAsync();
             return HttpStatusCode.OK;
         }
         catch (DbUpdateException ex)

@@ -25,12 +25,24 @@ public class EmailAct
     public string? SearchEmailContent { get; set; }
     
     /// <summary>
-    /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.AppendAttachment" />
+    /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.AddAttachments" />
     /// </summary>
-    public byte[][]? AttachmentBytes { get; set; }
+    public EmailAttachment[]? Attachments { get; set; }
     
     /// <summary>
     /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.Remove" /> or <see cref="AppliedSoftware.Models.Enums.ActAction.AppendAttachment" />
     /// </summary>
-    public string? EmailIdentifier { get; set; }
+    public long? EmailId { get; set; }
+}
+
+public class EmailAttachment
+{
+    /// <summary>
+    /// Includes the type of document (e.g. .pdf, .docx, .png).
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+    
+    public string MimeType { get; set; } = string.Empty;
+    
+    public byte[] AttachmentBytes { get; set; } = Array.Empty<byte>();
 }
