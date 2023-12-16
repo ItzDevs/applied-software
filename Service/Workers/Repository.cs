@@ -1597,7 +1597,6 @@ public class Repository(
         act.Action = char.ToUpper(act.Action[0]) + act.Action[1..];
         var validActionType = Enum.TryParse<ActAction>(act.Action, out var actAction);
         // Validation on the action
-        var messages = new List<string>();
         if(!validActionType || 
            actAction == ActAction.None)
             return new(HttpStatusCode.BadRequest, 
