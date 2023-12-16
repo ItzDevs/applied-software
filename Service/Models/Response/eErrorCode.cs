@@ -72,5 +72,8 @@ public enum eErrorCode
     /// </summary>
     ServiceUnavailable = 430,
     
-    
+    /// <summary>
+    /// Failed to save a file.
+    /// </summary>
+    SaveFailed = 431,
 }

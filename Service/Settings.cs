@@ -5,6 +5,8 @@ namespace AppliedSoftware;
 public class Settings
 {
     public string ConnectionString { get; set; } = string.Empty;
+    
+    public string CdnPath { get; set; } = Environment.GetEnvironmentVariable("CDN_PATH") ?? string.Empty;
     public FirebaseSettings FirebaseSettings { get; set; } = new();
     
     internal static readonly JsonSerializerOptions DefaultSerializerOptions = new()

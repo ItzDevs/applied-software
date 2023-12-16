@@ -28,4 +28,10 @@ public static class HostBuilderExtensions
         
         ctx.Database.Migrate();
     }
+
+    public static void EnsureCdnDirectoryExists(this WebApplication host, Settings settings)
+    {
+        if (!Directory.Exists(settings.CdnPath))
+            Directory.CreateDirectory(settings.CdnPath);
+    }
 }

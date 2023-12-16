@@ -1,6 +1,7 @@
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Request;
 using AppliedSoftware.Models.Response;
+using AppliedSoftware.Models.Response.PackageActionsAct;
 
 namespace AppliedSoftware.Workers;
 
@@ -220,5 +221,19 @@ public interface IRepository
     Task<StatusContainer<PackageActionDto>> GetPackageAction(
         string packageIdentifier,
         string packageActionIdentifier,
+        bool isInternal = false);
+
+    /// <summary>
+    /// Perform an action on a package action if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="packageIdentifier"></param>
+    /// <param name="packageActionIdentifier"></param>
+    /// <param name="act"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<ActionResponse>> ActOnPackageAction(
+        string packageIdentifier,
+        string packageActionIdentifier,
+        ActPackageAction act,
         bool isInternal = false);
 }

@@ -105,12 +105,12 @@ app.MapControllers();
 
 app.EnsureMigrated();
 
+app.EnsureCdnDirectoryExists(serviceSettings);
 
 // Config loaded from GOOGLE_APPLICATION_CREDENTIALS environment variable.
 FirebaseApp.Create();
 
 var firebaseSyncService = app.Services.GetRequiredService<IFirebaseUserSync>();
 await firebaseSyncService.StartAsync();
-
 
 app.Run();

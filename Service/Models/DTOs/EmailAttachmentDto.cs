@@ -2,9 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace AppliedSoftware.Models.DTOs;
 
-/// <summary>
-/// Represents an attachment to an email.
-/// </summary>
 public class EmailAttachmentDto
 {
     /// <summary>
@@ -36,5 +33,5 @@ public class EmailAttachmentDto
     /// The navigation property to the email package action.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public EmailPackageActionDto EmailPackageActionDto { get; set; } = null!;
+    public EmailPackageActionDto EmailPackageAction { get; set; } = null!;
 }

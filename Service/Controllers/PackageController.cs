@@ -43,6 +43,9 @@ public class PackageController(
         => (await repository.GetPackageAction(packageIdentifier, packageActionIdentifier)).ToResponse();
     
     [HttpPost("{packageIdentifier}/actions/{packageActionIdentifier}/act")]
-    public async Task<IActionResult> Act(ActPackageAction packageAction) 
-        => StatusCode((int)HttpStatusCode.NotImplemented);
+    public async Task<IActionResult> Act(
+        string packageIdentifier, 
+        string packageActionIdentifier, 
+        ActPackageAction packageAction) 
+        => (await repository.ActOnPackageAction(packageIdentifier, packageActionIdentifier, packageAction)).ToResponse();
 }

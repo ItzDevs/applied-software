@@ -152,7 +152,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     Body = table.Column<string>(type: "text", nullable: true),
                     EmailTsVector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
                         .Annotation("Npgsql:TsVectorConfig", "english")
-                        .Annotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body" }),
+                        .Annotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body", "Recipients", "Sender" }),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -265,15 +265,14 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     EmailPackageActionId = table.Column<long>(type: "bigint", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     FileType = table.Column<string>(type: "text", nullable: false),
-                    FilePath = table.Column<string>(type: "text", nullable: false),
-                    EmailPackageActionDtoEmailId = table.Column<long>(type: "bigint", nullable: false)
+                    FilePath = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("email_attachment__pk", x => x.AttachmentId);
                     table.ForeignKey(
-                        name: "FK_email_attachment_email_package_action_EmailPackageActionDto~",
-                        column: x => x.EmailPackageActionDtoEmailId,
+                        name: "FK_email_attachment_email_package_action_EmailPackageActionId",
+                        column: x => x.EmailPackageActionId,
                         principalTable: "email_package_action",
                         principalColumn: "EmailId",
                         onDelete: ReferentialAction.Cascade);
@@ -359,9 +358,9 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 column: "UsersUid");
 
             migrationBuilder.CreateIndex(
-                name: "IX_email_attachment_EmailPackageActionDtoEmailId",
+                name: "IX_email_attachment_EmailPackageActionId",
                 table: "email_attachment",
-                column: "EmailPackageActionDtoEmailId");
+                column: "EmailPackageActionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_email_package_action_PackageActionId",

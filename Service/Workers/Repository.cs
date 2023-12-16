@@ -9,6 +9,7 @@ using AppliedSoftware.Models.Response;
 using AppliedSoftware.Models.Response.PackageActionsAct;
 using AppliedSoftware.Workers.EFCore;
 using Microsoft.EntityFrameworkCore;
+using MimeKit;
 
 namespace AppliedSoftware.Workers;
 
@@ -16,8 +17,10 @@ public class Repository(
     ExtranetContext context,
     IAuthentication authenticationService,
     IHttpContextAccessor httpContextAccessor,
+    Settings settings,
     ILogger<Repository> logger) : IRepository
 {
+
     /// <inheritdoc />
     public async Task<StatusContainer<GlobalPermissionDto>> GetGlobalPermissionsForUser(
         string userId)
@@ -963,11 +966,10 @@ public class Repository(
             await context.SaveChangesAsync();
 
             if (failedUsers.Count > 0)
-            {
                 return new(HttpStatusCode.BadRequest, 
                     error: new(eErrorCode.ValidationError, 
                         failedUsers.Select(x => $"User with id {x} was not found.").ToArray()));
-            }
+            
             return HttpStatusCode.OK;
         }
         catch (DbUpdateException ex)
@@ -1592,29 +1594,45 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested package action ({packageActionIdentifier}) for the package ({packageIdentifier}) could not be found." }));
 
+        act.Action = char.ToUpper(act.Action[0]) + act.Action[1..];
+        var validActionType = Enum.TryParse<ActAction>(act.Action, out var actAction);
         // Validation on the action
         var messages = new List<string>();
-        if(!Enum.TryParse<ActAction>(act.Action, out var actAction) || 
+        if(!validActionType || 
            actAction == ActAction.None)
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.ValidationError, new[] 
                     { "Invalid action provided." }));
 
         var valid = false;
-        
+
+        ActionResponse? actionResponse = null;
         
         switch (actAction)
         {
             // Current Search internally redirects to ViewEmail
             case ActAction.Search:
             case ActAction.ViewEmail:
-                if(!string.IsNullOrWhiteSpace(act.Email?.SearchEmailContent))
-                    valid = true;
+                if(string.IsNullOrWhiteSpace(act.Email?.SearchEmailContent))
+                    break;
+                var emails
+                    = await GetEmails(packageAction, act.Email.SearchEmailContent);
+                actionResponse = new()
+                {
+                    Emails = emails
+                };
+
+                valid = true;
                 break;
             case ActAction.Upload:
-                if (act.Email?.File is not null && 
-                    act.Email.File.Length > 0)
-                    valid = true;
+                if (act.Email?.File is null ||
+                    act.Email.File.Length == 0)
+                    break;
+                var response = await UploadEmail(packageAction, act.Email.File);
+                if(!response.Success)
+                    return new(response.StatusCode, 
+                        error: response.Error);
+                valid = true;
                 break;
             case ActAction.AppendAttachment:
                 if(act.Email?.AttachmentBytes is not null && 
@@ -1637,6 +1655,89 @@ public class Repository(
                 error: new(eErrorCode.ValidationError, new[] 
                     { $"Invalid data for action ({act.Action}) provided." }));
         
-        throw new NotImplementedException();
+        return new(HttpStatusCode.OK, actionResponse);
+    }
+
+    private async Task<IList<EmailPackageActionDto>> GetEmails(PackageActionDto packageAction, string query)
+        => await context.EmailPackageActions
+            .Where(x => x.PackageActionId == packageAction.PackageActionId &&
+                        x.EmailTsVector.Matches(query))
+            .ToListAsync();
+
+    private async Task<StatusContainer> UploadEmail(
+        PackageActionDto packageAction, 
+        byte[] bytes)
+    {
+        try
+        {
+            await using var stream = new MemoryStream(bytes);
+
+            var message = await MimeMessage.LoadAsync(stream);
+
+            var emailDto = new EmailPackageActionDto
+            {
+                PackageActionId = packageAction.PackageActionId,
+                Recipients = string.Join(", ", message.To.Mailboxes.Select(x => $"{x.Name} ({x.Address})")),
+                Sender = string.Join(", ", message.From.Mailboxes.Select(x => $"{x.Name} ({x.Address})")),
+                Subject = message.Subject,
+                Body = message.TextBody
+            };
+            // TODO: is it possible to add the attachments via the Attachments navigation property without needing to set the email ID below?
+            await context.EmailPackageActions.AddAsync(emailDto);
+            await context.SaveChangesAsync();
+
+            foreach (var attachmentEntity in message.Attachments)
+            {
+                if (attachmentEntity is not MimePart attachment)
+                    continue;
+
+                var fileNameParts = attachment.ContentDisposition.FileName.Split('.');
+                var filePath = Path.Combine(settings.CdnPath,
+                    $"{emailDto.EmailId}-{fileNameParts[0]}__{Guid.NewGuid()}.{fileNameParts[^1]}");
+
+                await using var fileStream = File.Create(filePath);
+                await attachment.Content.DecodeToAsync(fileStream);
+                var emailAttachmentDto = new EmailAttachmentDto
+                {
+                    EmailPackageActionId = emailDto.EmailId,
+                    Name = attachment.ContentDisposition.FileName,
+                    FileType = attachment.ContentType.MimeType,
+                    FilePath = filePath
+                };
+                await context.EmailAttachments.AddAsync(emailAttachmentDto);
+            }
+
+            await context.SaveChangesAsync();
+
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to save email - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.BadRequest, new[]
+                    { "Failed to save the email, please check the data again." }));
+        }
+        catch (IOException ex)
+        {
+            logger.LogError(ex, "Failed to save email - IOException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "Failed to save one or more attachments." }));
+        }
+        catch (FormatException ex)
+        {
+            logger.LogError(ex, "Failed to save email - FormatException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "The uploaded file was not an Email format (.eml)." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create package");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create the package, please try again later." }));
+        }
     }
 }

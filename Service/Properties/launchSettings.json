@@ -17,7 +17,8 @@
       "applicationUrl": "http://localhost:5071",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "GOOGLE_APPLICATION_CREDENTIALS": "firebase-admin.json"
+        "GOOGLE_APPLICATION_CREDENTIALS": "firebase-admin.json",
+        "CDN_PATH": "CDN"
       }
     },
     "https": {

@@ -29,18 +29,3 @@ public class Authentication(
     public string? ExtractUserId(ClaimsPrincipal? user)
         => user?.FindFirst("user_id")?.Value;
 }
-
-public interface IAuthentication : IWorkerService
-{
-    /// <summary>
-    /// Extracts the user ID from a <see cref="ClaimsPrincipal"/>.
-    /// </summary>
-    /// <param name="user"></param>
-    /// <returns></returns>
-    string? ExtractUserId(ClaimsPrincipal? user);
-}
-
-public interface IWorkerService
-{
-    Task StartAsync(CancellationToken ct = default);
-}

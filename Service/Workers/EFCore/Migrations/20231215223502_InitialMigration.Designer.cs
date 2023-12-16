@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231213175335_InitialMigration")]
+    [Migration("20231215223502_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -34,9 +34,6 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AttachmentId"));
 
-                    b.Property<long>("EmailPackageActionDtoEmailId")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("EmailPackageActionId")
                         .HasColumnType("bigint");
 
@@ -55,7 +52,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.HasKey("AttachmentId")
                         .HasName("email_attachment__pk");
 
-                    b.HasIndex("EmailPackageActionDtoEmailId");
+                    b.HasIndex("EmailPackageActionId");
 
                     b.ToTable("email_attachment", (string)null);
                 });
@@ -79,7 +76,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("tsvector")
                         .HasAnnotation("Npgsql:TsVectorConfig", "english")
-                        .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body" });
+                        .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body", "Recipients", "Sender" });
 
                     b.Property<long>("PackageActionId")
                         .HasColumnType("bigint");
@@ -463,13 +460,13 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.EmailAttachmentDto", b =>
                 {
-                    b.HasOne("AppliedSoftware.Models.DTOs.EmailPackageActionDto", "EmailPackageActionDto")
+                    b.HasOne("AppliedSoftware.Models.DTOs.EmailPackageActionDto", "EmailPackageAction")
                         .WithMany("Attachments")
-                        .HasForeignKey("EmailPackageActionDtoEmailId")
+                        .HasForeignKey("EmailPackageActionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("EmailPackageActionDto");
+                    b.Navigation("EmailPackageAction");
                 });
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.EmailPackageActionDto", b =>

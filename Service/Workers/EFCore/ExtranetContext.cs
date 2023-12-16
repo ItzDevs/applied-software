@@ -93,7 +93,7 @@ public partial class ExtranetContext : DbContext
             entity.HasGeneratedTsVectorColumn(
                 e => e.EmailTsVector,
                 "english",
-                e => new { e.Subject, e.Body });
+                e => new { e.Subject, e.Body, e.Recipients, e.Sender });
 
             entity.HasIndex(e => e.EmailTsVector, "email_tsv__indx").HasMethod("GIN");
         });

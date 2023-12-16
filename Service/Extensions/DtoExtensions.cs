@@ -60,7 +60,7 @@ public static class DtoExtensions
         bool emailPackageActionDto = true)
     {
         if(emailPackageActionDto)
-            emailAttachmentDto.EmailPackageActionDto = null!;
+            emailAttachmentDto.EmailPackageAction = null!;
         return emailAttachmentDto;
     }
 

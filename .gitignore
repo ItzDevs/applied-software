@@ -12,3 +12,6 @@ firebase*.json
 .env
 
 http.http
+
+*/CDN/*
+/Service/AppliedSoftware.sln.DotSettings.user
