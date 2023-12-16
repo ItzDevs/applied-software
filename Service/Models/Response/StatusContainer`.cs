@@ -55,7 +55,7 @@ public readonly struct StatusContainer<T>
     /// </summary>
     /// <returns></returns>
     public ObjectResult ToResponse()
-        => new ObjectResult(ResponseData)
+        => new (ResponseData)
         {
             StatusCode = (int)StatusCode
         };

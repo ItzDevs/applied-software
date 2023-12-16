@@ -25,7 +25,7 @@ public enum ActAction
     /// <summary>
     /// Only available in an <see cref="PackageActionType.Email"/> package action.
     /// </summary>
-    AppendAttachment = 4,
+    AddAttachment = 4,
     
     /// <summary>
     /// Only available in an <see cref="PackageActionType.Email"/> package action.

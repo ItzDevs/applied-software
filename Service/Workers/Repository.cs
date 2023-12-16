@@ -1634,12 +1634,12 @@ public class Repository(
                         error: response.Error);
                 valid = true;
                 break;
-            case ActAction.AppendAttachment:
+            case ActAction.AddAttachment:
                 if(act.Email?.AttachmentBytes is not null && 
                    act.Email.AttachmentBytes.Length > 0 && 
                    !string.IsNullOrWhiteSpace(act.Email.EmailIdentifier))
                     valid = true;
-                break;
+                break; 
             case ActAction.Remove:
                 if (!string.IsNullOrWhiteSpace(act.Email?.EmailIdentifier))
                     valid = true;
@@ -1654,7 +1654,12 @@ public class Repository(
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.ValidationError, new[] 
                     { $"Invalid data for action ({act.Action}) provided." }));
-        
+
+        actionResponse ??= new(); // In the case an actionResponse was not created - it leaves the following response
+                                  // {
+                                  //    responseCode: 1,
+                                  //    body: {}
+                                  // } 
         return new(HttpStatusCode.OK, actionResponse);
     }
 
@@ -1674,27 +1679,25 @@ public class Repository(
 
             var message = await MimeMessage.LoadAsync(stream);
 
+            var attachments = new List<EmailAttachmentDto>();
             var emailDto = new EmailPackageActionDto
             {
                 PackageActionId = packageAction.PackageActionId,
                 Recipients = string.Join(", ", message.To.Mailboxes.Select(x => $"{x.Name} ({x.Address})")),
                 Sender = string.Join(", ", message.From.Mailboxes.Select(x => $"{x.Name} ({x.Address})")),
                 Subject = message.Subject,
-                Body = message.TextBody
+                Body = message.TextBody,
+                Attachments = attachments
             };
-            // TODO: is it possible to add the attachments via the Attachments navigation property without needing to set the email ID below?
-            await context.EmailPackageActions.AddAsync(emailDto);
-            await context.SaveChangesAsync();
 
             foreach (var attachmentEntity in message.Attachments)
             {
                 if (attachmentEntity is not MimePart attachment)
                     continue;
 
-                var fileNameParts = attachment.ContentDisposition.FileName.Split('.');
                 var filePath = Path.Combine(settings.CdnPath,
-                    $"{emailDto.EmailId}-{fileNameParts[0]}__{Guid.NewGuid()}.{fileNameParts[^1]}");
-
+                    // Guid helps to randomise the file name and avoid overwriting existing files; and the file name furthers reduced naming clashes.
+                    $"{Guid.NewGuid()}__{attachment.ContentDisposition.FileName}");
                 await using var fileStream = File.Create(filePath);
                 await attachment.Content.DecodeToAsync(fileStream);
                 var emailAttachmentDto = new EmailAttachmentDto
@@ -1704,9 +1707,10 @@ public class Repository(
                     FileType = attachment.ContentType.MimeType,
                     FilePath = filePath
                 };
-                await context.EmailAttachments.AddAsync(emailAttachmentDto);
+                attachments.Add(emailAttachmentDto);
             }
 
+            await context.EmailPackageActions.AddAsync(emailDto);
             await context.SaveChangesAsync();
 
             return HttpStatusCode.OK;
@@ -1730,7 +1734,7 @@ public class Repository(
             logger.LogError(ex, "Failed to save email - FormatException");
             return new(HttpStatusCode.InternalServerError,
                 new(eErrorCode.SaveFailed, new[]
-                    { "The uploaded file was not an Email format (.eml)." }));
+                    { "The uploaded file was not in Email format (.eml)." }));
         }
         catch (Exception ex)
         {
