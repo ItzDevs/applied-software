@@ -30,11 +30,15 @@ public class EmailPackageActionDto
     /// </summary>
     public string? Subject { get; set; }
     
+    /// <summary>
+    /// The body of the email.
+    /// </summary>
     public string? Body { get; set; } = null!;
 
     /// <summary>
     /// Allows fulltext searching to be performed on the body of the email.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public NpgsqlTsVector EmailTsVector { get; set; } = null!;
     
     /// <summary>
@@ -50,6 +54,8 @@ public class EmailPackageActionDto
     /// <summary>
     /// The navigation property to the package action.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+
     public PackageActionDto PackageAction { get; set; } = null!;
     
     /// <summary>

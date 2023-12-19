@@ -1,6 +1,6 @@
 namespace AppliedSoftware.Models.Request;
 
-public abstract class EmailAct
+public class EmailAct
 {
     /// <summary>
     ///  Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.Upload"/>
@@ -10,7 +10,7 @@ public abstract class EmailAct
     /// <summary>
     ///  Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.ViewEmail"/>
     /// </summary>
-    public string? SearchEmailContent { get; set; }
+    public string? Search { get; set; }
     
     /// <summary>
     /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.AddAttachments" />
@@ -18,7 +18,7 @@ public abstract class EmailAct
     public EmailAttachment[]? Attachments { get; set; }
     
     /// <summary>
-    /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.Remove" /> or <see cref="AppliedSoftware.Models.Enums.ActAction.AppendAttachment" />
+    /// Only required when using <see cref="AppliedSoftware.Models.Enums.ActAction.Remove" /> or <see cref="AppliedSoftware.Models.Enums.ActAction.AddAttachments" />
     /// </summary>
     public long? EmailId { get; set; }
 }

@@ -6,7 +6,7 @@ using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Enums;
 using AppliedSoftware.Models.Request;
 using AppliedSoftware.Models.Response;
-using AppliedSoftware.Models.Response.PackageActionsAct;
+using AppliedSoftware.Models.Response.PackageActions;
 using AppliedSoftware.Workers.EFCore;
 using Microsoft.EntityFrameworkCore;
 using MimeKit;
@@ -1478,7 +1478,7 @@ public class Repository(
         var isPackageActionsUsingId = long.TryParse(packageActionIdentifier, out var packageActionId);
 
         var isPackageActionsUsingEnum =
-            Enum.TryParse<PackageActionType>(packageActionIdentifier, out var packageActionType);
+            Enum.TryParse<PackageActionType>(packageActionIdentifier, true, out var packageActionType);
         
         if (!isPackageActionsUsingId && // If its not using the package action id 
             !isPackageActionsUsingEnum)
@@ -1528,7 +1528,7 @@ public class Repository(
         var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                    permissionFlag.HasFlag(GlobalPermission.ReadPackage);
         // NOTE: This does not check for permission overrides.
-        var userInPackage = packageAction.UserInPackageAction(userId);
+        var userInPackage = packageAction.UserInPackageAction(userId, out _);
         
          // If the user does not have the global permission Administrator or ReadPackage
          if (flagPermissionsFound ||
@@ -1557,17 +1557,14 @@ public class Repository(
         
         var isPackageUsingId = long.TryParse(packageIdentifier, out var packageId);
         var isPackageActionsUsingId = long.TryParse(packageActionIdentifier, out var packageActionId);
-
         var isPackageActionsUsingEnum =
-            Enum.TryParse<PackageActionType>(packageActionIdentifier, out var packageActionType);
+            Enum.TryParse<PackageActionType>(packageActionIdentifier, true, out var packageActionType);
         
         if (!isPackageActionsUsingId && // If its not using the package action id 
             !isPackageActionsUsingEnum)
-        {
             return new(HttpStatusCode.BadRequest,
                 error: new(eErrorCode.ValidationError, new[]
                     { "The package action identifier is not valid." }));
-        }
         
         PackageActionDto? packageAction;
         if(isPackageActionsUsingId)
@@ -1584,7 +1581,6 @@ public class Repository(
                 .Include(x => x.Package)
                 .FirstOrDefaultAsync(x => x.Package.Name == packageIdentifier &&
                                           x.PackageActionType == packageActionType);
-
         if(packageAction is null || 
            // Not only checking if the package exists, but also that the provided packageIdentifier in 
            // the endpoint is correct for the package action.
@@ -1594,8 +1590,7 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested package action ({packageActionIdentifier}) for the package ({packageIdentifier}) could not be found." }));
 
-        act.Action = char.ToUpper(act.Action[0]) + act.Action[1..];
-        var validActionType = Enum.TryParse<ActAction>(act.Action, out var actAction);
+        var validActionType = Enum.TryParse<ActAction>(act.Action, true, out var actAction);
         // Validation on the action
         if(!validActionType || 
            actAction == ActAction.None)
@@ -1603,24 +1598,46 @@ public class Repository(
                 error: new(eErrorCode.ValidationError, new[] 
                     { "Invalid action provided." }));
 
-        var valid = false;
+        var validation = await ValidateUser(claims);
+        if(!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
 
-        ActionResponse? actionResponse = null;
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
         
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+        var userInPackage = packageAction.UserInPackageAction(userId, out _);
+        
+        // First layer of permission checks.
+        if(!flagPermissionsFound || 
+           !userInPackage)
+            return new(HttpStatusCode.Forbidden, 
+                error: CodeMessageResponse.ForbiddenAction);
+        
+        // TODO: Add the remaining permission checks to each branch of the switch statement.
+        var valid = false;
+        ActionResponse? actionResponse = null;
         switch (actAction)
         {
             // Current Search internally redirects to ViewEmail
             case ActAction.Search:
             case ActAction.ViewEmail:
-                if(string.IsNullOrWhiteSpace(act.Email?.SearchEmailContent))
+                if(string.IsNullOrWhiteSpace(act.Email?.Search))
                     break;
+                
+                //if(!isInternal && )
+                
                 var emails
-                    = await GetEmails(packageAction, act.Email.SearchEmailContent);
+                    = await GetEmails(packageAction, act.Email.Search);
+
+                var emailResponses 
+                    = emails.Select(email => new EmailPackageActionResponse(email));
                 actionResponse = new()
                 {
-                    Emails = emails
+                    Emails = emailResponses
                 };
-
                 valid = true;
                 break;
             case ActAction.Upload:
@@ -1639,27 +1656,33 @@ public class Repository(
                     act.Email.EmailId is null)
                     break;
 
-                var addAttachments = await AddAttachments(act.Email.EmailId, act.Email.Attachments);
+                var addAttachments 
+                    = await AddAttachments(
+                        act.Email.EmailId, 
+                        act.Email.Attachments);
                 if(!addAttachments.Success)
                     return new(addAttachments.StatusCode, 
                         error: addAttachments.Error);
                 valid = true;
                 break; 
             case ActAction.Remove:
-                if (act.Email?.EmailId is not null)
-                    valid = true;
+                if (act.Email?.EmailId is null) 
+                    break;
+                
+                var removeEmail = await RemoveEmail(act.Email.EmailId);
+                if(!removeEmail.Success)
+                    return new(removeEmail.StatusCode, 
+                        error: removeEmail.Error);
+                valid = true;
                 break;
             case ActAction.None: // Unreachable
             default:
                 throw new ArgumentOutOfRangeException(nameof(act.Action));
         }
-        
-        
         if(!valid)
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.ValidationError, new[] 
                     { $"Invalid data for action ({act.Action}) provided." }));
-
         actionResponse ??= new(); // In the case an actionResponse was not created - it leaves the following response
                                   // {
                                   //    responseCode: 1,
@@ -1669,15 +1692,22 @@ public class Repository(
     }
 
     private async Task<IList<EmailPackageActionDto>> GetEmails(PackageActionDto packageAction, string query)
-        => await context.EmailPackageActions
+    {
+        logger.LogInformation(nameof(GetEmails));
+        
+        var emails = await context.EmailPackageActions
+            .Include(x => x.Attachments)
             .Where(x => x.PackageActionId == packageAction.PackageActionId &&
                         x.EmailTsVector.Matches(query))
             .ToListAsync();
+        return emails;
+    } 
 
     private async Task<StatusContainer> UploadEmail(
         PackageActionDto packageAction, 
         byte[] bytes)
     {
+        logger.LogInformation(nameof(UploadEmail));
         try
         {
             await using var stream = new MemoryStream(bytes);
@@ -1710,7 +1740,7 @@ public class Repository(
                     EmailPackageActionId = emailDto.EmailId,
                     Name = attachment.ContentDisposition.FileName,
                     FileType = attachment.ContentType.MimeType,
-                    FilePath = filePath
+                    FilePath = fileStream.Name
                 };
                 attachments.Add(emailAttachmentDto);
             }
@@ -1754,6 +1784,7 @@ public class Repository(
         long? emailId,
         IEnumerable<EmailAttachment> attachments)
     {
+        logger.LogInformation(nameof(AddAttachments));
         try
         {
             var emailAction =
@@ -1808,4 +1839,106 @@ public class Repository(
                     { "Failed to create the package, please try again later." }));
         }
     }
+
+    private async Task<StatusContainer> RemoveEmail(
+        long? emailId)
+    {
+        logger.LogInformation(nameof(RemoveEmail));
+        try
+        {
+            var emailAction =
+                await context.EmailPackageActions
+                    .Include(x => x.Attachments)
+                   .FirstOrDefaultAsync(x => x.EmailId == emailId);
+
+            if (emailAction is null)
+                return HttpStatusCode.NotFound;
+            
+            var attachments = emailAction.Attachments.ToList();
+            foreach (var attachment in attachments)
+            {
+                try
+                {
+                    File.Delete(attachment.FilePath);
+                    emailAction.Attachments.Remove(attachment);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to delete attachment");
+                }
+            }
+            context.EmailPackageActions.Remove(emailAction);
+            await context.SaveChangesAsync();
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Failed to save email - DbUpdateException");
+            return new(HttpStatusCode.BadRequest,
+                new(eErrorCode.BadRequest, new[]
+                    { "Failed to save the email, please check the data again." }));
+        }
+        catch (IOException ex)
+        {
+            logger.LogError(ex, "Failed to save email - IOException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "Failed to save one or more attachments." }));
+        }
+        catch (FormatException ex)
+        {
+            logger.LogError(ex, "Failed to save email - FormatException");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.SaveFailed, new[]
+                    { "The uploaded file was not in Email format (.eml)." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create package");
+            return new(HttpStatusCode.InternalServerError,
+                new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to create the package, please try again later." }));
+        }
+    }
+
+    // public async Task<StatusContainer<FileStreamResult>> DownloadAttachment(
+    //     long attachmentId, 
+    //     bool isInternal = false)
+    // {
+    //     logger.LogInformation(nameof(DownloadAttachment));
+    //     
+    //     var claims = httpContextAccessor.HttpContext?.User;
+    //
+    //     // Authentication
+    //     if (claims is null && !isInternal)
+    //         return new(HttpStatusCode.Unauthorized,
+    //             error: CodeMessageResponse.Unauthorised);
+    //     
+    //     var attachment = await context.EmailAttachments
+    //         .Include(x => x.EmailPackageAction)
+    //         .ThenInclude(x => x.PackageAction)
+    //         .FirstOrDefaultAsync(a => a.AttachmentId == attachmentId);
+    //
+    //     if (attachment is null)
+    //         return new(HttpStatusCode.NotFound,
+    //             error: new(eErrorCode.NotFound, new[] 
+    //                 { "The attachment was not found." }));
+    //     
+    //     if(isInternal)
+    //         return new(HttpStatusCode.OK,
+    //             new (File.OpenRead(attachment.FilePath), 
+    //                 attachment.FileType));
+    //     var validation = await ValidateUser(claims);
+    //     if(!validation.Success || validation.ResponseData.Body is null)
+    //         return new(validation.StatusCode, 
+    //             error: validation.ResponseData.Error);
+    //
+    //     var userId = validation.ResponseData.Body.UserId;
+    //     var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+    //     
+    //     var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+    //                                permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+    //     var userInPackage = attachment.EmailPackageAction.PackageAction.UserInPackageAction(userId, out _);
+    //     
+    // }
 }

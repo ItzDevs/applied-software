@@ -1,4 +1,6 @@
 using AppliedSoftware.Models.DTOs;
+using AppliedSoftware.Models.Enums;
+using AppliedSoftware.Models.Response.PackageActions;
 using FirebaseAdmin.Auth;
 
 namespace AppliedSoftware.Extensions;
@@ -43,10 +45,97 @@ public static class DtoExtensions
                    ug.Users.Any(member => member.Uid == userId)));
     }
 
-    public static bool UserInPackageAction(this PackageActionDto packageAction, string userId)
+    public static void LayerPermissions(UserGroupPermissionOverrideDto permissionOverrides)
     {
-        return packageAction.UserPermissionOverrides.Any(x => x.UserId == userId) || 
-               packageAction.Package.UserInPackage(userId);
+        // TODO:
+        //  This method extracts the permission from each 'layer' (every permission override in the tree), 
+        //  and will return a single flag permission of the correct granted permissions.
+        
+        var basePermissions = permissionOverrides.UserGroup?.Team.DefaultAllowedPermissions ?? PackageActionPermission.None;
+        
+        var finalPermissions = basePermissions;
+        
+
+        var removedPermissionsFromBase = permissionOverrides.UserGroup?.DisallowedPermissions ?? PackageActionPermission.None;
+
+        foreach (PackageActionPermission flag in removedPermissionsFromBase.GetFlags())
+        {
+            if (!finalPermissions.HasFlag(flag)) 
+                continue;
+            
+            var mask = ~flag;
+                
+            finalPermissions &= mask;
+        }
+    }
+
+    public static bool UserInPackageAction(
+        this PackageActionDto packageAction, 
+        string userId, 
+        out PackageActionPermission? actingPermissions)
+    {
+        // out parameters cannot have default values, so this is its default value.
+        actingPermissions = null;
+
+        // This confirms that we should continue with working out the actingPermissions value.
+        var userInPackage = packageAction.UserPermissionOverrides.Any(x => x.UserId == userId) ||
+                            packageAction.Package.UserInPackage(userId);
+
+        if (!userInPackage) 
+            return userInPackage;
+        
+        var userPermissionOverrides = packageAction.UserPermissionOverrides.FirstOrDefault(x => x.UserId == userId);
+        var userGroupPermissionOverrides = packageAction.TeamPermissionOverrides
+            .Where(x => x.UserGroup.Users
+                .Any(member => member.Uid == userId))
+            .ToList();
+
+        UserGroupPermissionOverrideDto? highestDeniedPermissionsOverride = null;
+        var highestDeniedPermissions = -1;
+        foreach (var userGroupOverride in userGroupPermissionOverrides)
+        {
+            // Finding the highest denied permissions (as this would be explicitly denying inherited permissions)
+
+            // Special case; this will ALWAYS be the highest denied permission.
+            if (userGroupOverride.DisallowedPermissions.HasFlag(PackageActionPermission.All))
+            {
+                highestDeniedPermissionsOverride = userGroupOverride;
+                break;
+            }
+
+            var deniedPermissionCount 
+                = Enum.GetValues(typeof(PackageActionPermission))
+                    .Cast<PackageActionPermission>()
+                    .Count(e => userGroupOverride.DisallowedPermissions.HasFlag(e));
+
+            if (deniedPermissionCount <= highestDeniedPermissions) 
+                continue;
+            
+            highestDeniedPermissionsOverride = userGroupOverride;
+            highestDeniedPermissions = deniedPermissionCount;
+        }
+
+        // If we haven't got a 'highestDeniedPermissions' at this point; we should check 
+
+        if (userPermissionOverrides is null) 
+            return userInPackage;
+        var grantedPermissions = userPermissionOverrides.AllowedPermissions;
+        var deniedPermissions = userPermissionOverrides.DisallowedPermissions;
+        var inheritedPermissions = highestDeniedPermissionsOverride;
+        
+
+        return userInPackage;
+    }
+
+    public static EmailAttachmentResponse ToEmailAttachmentResponse(this EmailAttachmentDto attachment)
+    {
+        return new(attachment);
+    }    
+    
+    public static IEnumerable<EmailAttachmentResponse> ToEmailAttachmentResponse(
+        this IEnumerable<EmailAttachmentDto> emailAttachments)
+    {
+        return emailAttachments.Select(emailAttachment => emailAttachment.ToEmailAttachmentResponse());
     }
 
     /// <summary>

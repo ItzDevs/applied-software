@@ -1,7 +1,7 @@
 using AppliedSoftware.Models.DTOs;
 using AppliedSoftware.Models.Request;
 using AppliedSoftware.Models.Response;
-using AppliedSoftware.Models.Response.PackageActionsAct;
+using AppliedSoftware.Models.Response.PackageActions;
 
 namespace AppliedSoftware.Workers;
 

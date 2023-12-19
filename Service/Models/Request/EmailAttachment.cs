@@ -1,6 +1,6 @@
 namespace AppliedSoftware.Models.Request;
 
-public abstract class EmailAttachment
+public class EmailAttachment
 {
     /// <summary>
     /// Includes the type of document (e.g. .pdf, .docx, .png).
