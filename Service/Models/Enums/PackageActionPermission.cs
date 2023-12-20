@@ -9,11 +9,6 @@ public enum PackageActionPermission
     None = 0,
     
     /// <summary>
-    /// Override all of the below, just give everything.
-    /// </summary>
-    Administrator = 1,
-    
-    /// <summary>
     /// Gives user default access to read information their own uploaded information within a package action.
     /// </summary>
     ReadSelf = 2,
@@ -66,5 +61,5 @@ public enum PackageActionPermission
     /// </summary>
     AddAlt = 256,
     
-    All = Administrator | ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | RemoveAlt | AddAlt
+    Administrator =  ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | RemoveAlt | AddAlt
 }

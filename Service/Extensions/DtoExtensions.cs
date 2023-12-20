@@ -45,28 +45,98 @@ public static class DtoExtensions
                    ug.Users.Any(member => member.Uid == userId)));
     }
 
-    public static void LayerPermissions(UserGroupPermissionOverrideDto permissionOverrides)
+    private static PackageActionPermission ProcessUserGroupPermissions(
+        PackageDto package,
+        PackageActionPermission basePermissions,
+        string userId)
     {
-        // TODO:
-        //  This method extracts the permission from each 'layer' (every permission override in the tree), 
-        //  and will return a single flag permission of the correct granted permissions.
-        
-        var basePermissions = permissionOverrides.UserGroup?.Team.DefaultAllowedPermissions ?? PackageActionPermission.None;
-        
-        var finalPermissions = basePermissions;
-        
+        var grantedUserGroupOverrides = new List<PackageActionPermission>();
+        var disallowedUserGroupOverrides = new List<PackageActionPermission>();
 
-        var removedPermissionsFromBase = permissionOverrides.UserGroup?.DisallowedPermissions ?? PackageActionPermission.None;
+        // Flatten all the user groups and filter out any group that the user is not a member of.
+        var userGroupsFlat = package.Teams
+            .SelectMany(team => team.UserGroups)
+            .Where(ug => ug.Users
+                .Any(member => member.Uid == userId));
 
-        foreach (PackageActionPermission flag in removedPermissionsFromBase.GetFlags())
+        foreach (var userGroup in userGroupsFlat)
         {
-            if (!finalPermissions.HasFlag(flag)) 
+            if(userGroup.AllowedPermissions is not null)
+                grantedUserGroupOverrides.Add((PackageActionPermission) userGroup.AllowedPermissions);
+            
+            if(userGroup.DisallowedPermissions is not null)
+                disallowedUserGroupOverrides.Add((PackageActionPermission) userGroup.DisallowedPermissions);
+        }
+
+
+        foreach (var grantedPermission in grantedUserGroupOverrides)
+        {
+            basePermissions |= grantedPermission;
+        }
+        
+        foreach (var disallowedPermission in disallowedUserGroupOverrides)
+        {
+            basePermissions &= ~disallowedPermission;
+        }
+        
+        return basePermissions;
+    }
+
+    public static PackageActionPermission GenerateActingPermissions(PackageDto package, string userId)
+    {
+        var teamsWithUser = package.Teams.Where(team => team.Users.Any(member => member.Uid == userId)).ToList();
+
+        TeamDto? highestPermissionTeam = null;
+        var highestGrantedPermissionTeam = -1;
+        foreach (var team in teamsWithUser)
+        {
+            // Special case; this will ALWAYS be the highest denied permission.
+            if (team.DefaultAllowedPermissions.HasFlag(PackageActionPermission.Administrator))
+            {
+                highestPermissionTeam = team;
+                break;
+            }
+
+            var grantedPermissionCount 
+                = Enum.GetValues(typeof(PackageActionPermission))
+                    .Cast<PackageActionPermission>()
+                    .Count(e => team.DefaultAllowedPermissions.HasFlag(e));
+
+            if (grantedPermissionCount > highestGrantedPermissionTeam) 
                 continue;
             
-            var mask = ~flag;
-                
-            finalPermissions &= mask;
+            highestPermissionTeam = team;
+            highestGrantedPermissionTeam = grantedPermissionCount;
         }
+
+        if (highestPermissionTeam is null)
+            throw new Exception("No teams had permissions");
+
+        var basePermissions = ProcessUserGroupPermissions(package, highestPermissionTeam.DefaultAllowedPermissions, userId);
+        
+        
+        if (package.Administrators.Any(x => x.Uid == userId))
+            basePermissions |= PackageActionPermission.Administrator;
+        return basePermissions;
+    }
+
+    public static PackageActionPermission GenerateActingPermissions(PackageActionDto packageAction, string userId)
+    {
+        // In this case, we do not need to process anything as the user, no matter what, is an administrator.
+        if (packageAction.Package.Administrators.Any(x => x.Uid == userId))
+        {
+            return PackageActionPermission.Administrator;
+        }
+        
+        var teamsWithUser = packageAction.Package.Teams
+            .Where(team => team.Users.Any(member => member.Uid == userId))
+            .ToList();
+        
+        var basePermissions = GenerateActingPermissions(packageAction.Package, userId);
+        
+        // TODO: the rest of this.
+
+        return basePermissions;
     }
 
     public static bool UserInPackageAction(
@@ -97,7 +167,7 @@ public static class DtoExtensions
             // Finding the highest denied permissions (as this would be explicitly denying inherited permissions)
 
             // Special case; this will ALWAYS be the highest denied permission.
-            if (userGroupOverride.DisallowedPermissions.HasFlag(PackageActionPermission.All))
+            if (userGroupOverride.DisallowedPermissions.HasFlag(PackageActionPermission.Administrator))
             {
                 highestDeniedPermissionsOverride = userGroupOverride;
                 break;
