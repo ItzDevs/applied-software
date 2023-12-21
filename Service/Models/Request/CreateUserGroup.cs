@@ -18,17 +18,12 @@ public class CreateUserGroup
     // will not be granted otherwise.
     public PackageActionPermission? DisallowedPermissions { get; set; }
 
-    public static bool operator ==(CreateUserGroup? left, UserGroupDto? right)
+    public bool HasIdenticalValues(UserGroupDto? right)
     {
-        return left?.Name?.Equals(right?.Name) == true && 
-               left.Description?.Equals(right?.Description) == true && 
-               left.AllowedPermissions == right.AllowedPermissions &&
-               left.DisallowedPermissions == right?.DisallowedPermissions &&
-               left.TeamId == right?.TeamId;
-    }
-
-    public static bool operator !=(CreateUserGroup? left, UserGroupDto? right)
-    {
-        return !(left == right);
+        return Name?.Equals(right?.Name) == true && 
+               Description?.Equals(right?.Description) == true && 
+               AllowedPermissions == right.AllowedPermissions &&
+               DisallowedPermissions == right?.DisallowedPermissions &&
+               TeamId == right?.TeamId;
     }
 }

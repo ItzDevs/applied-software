@@ -40,6 +40,12 @@ public class EmailPackageActionDto
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public NpgsqlTsVector EmailTsVector { get; set; } = null!;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string UploadedById { get; set; } = null!;
     
     /// <summary>
     /// The created timestamp.
@@ -57,6 +63,12 @@ public class EmailPackageActionDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 
     public PackageActionDto PackageAction { get; set; } = null!;
+    
+    /// <summary>
+    /// The navigation property for who uploaded the email.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UserDto UploadedBy { get; set; } = null!;
     
     /// <summary>
     /// The navigation property for the attachments.

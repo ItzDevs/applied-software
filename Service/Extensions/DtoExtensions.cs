@@ -39,10 +39,11 @@ public static class DtoExtensions
 
     public static bool UserInPackage(this PackageDto package, string userId)
     {
-        return package.Administrators.Any(x => x.Uid == userId) || 
-               package.Teams.Any(team => team.Users.Any(member => member.Uid == userId)) ||
-               package.Teams.Any(team => team.UserGroups.Any(ug => 
-                   ug.Users.Any(member => member.Uid == userId)));
+        var isInPackage = package.Administrators.Any(x => x.Uid == userId) ||
+                           package.Teams.Any(team => team.Users.Any(member => member.Uid == userId)) ||
+                           package.Teams.Any(team => team.UserGroups.Any(ug =>
+                               ug.Users.Any(member => member.Uid == userId)));
+        return isInPackage;
     }
 
     private static PackageActionPermission ProcessUserGroupPermissions(
@@ -102,7 +103,7 @@ public static class DtoExtensions
                     .Cast<PackageActionPermission>()
                     .Count(e => team.DefaultAllowedPermissions.HasFlag(e));
 
-            if (grantedPermissionCount > highestGrantedPermissionTeam) 
+            if (grantedPermissionCount < highestGrantedPermissionTeam) 
                 continue;
             
             highestPermissionTeam = team;
@@ -134,8 +135,39 @@ public static class DtoExtensions
         
         var basePermissions = GenerateActingPermissions(packageAction.Package, userId);
         
-        // TODO: the rest of this.
+        var grantedUserGroupOverrides = new List<PackageActionPermission>();
+        var disallowedUserGroupOverrides = new List<PackageActionPermission>();
 
+        foreach (var packageActionPermissionOverride in packageAction.UserGroupPermissionOverrides)
+        {
+            grantedUserGroupOverrides.Add(packageActionPermissionOverride.AllowedPermissions);
+            
+            disallowedUserGroupOverrides.Add(packageActionPermissionOverride.DisallowedPermissions);
+        }
+        
+        foreach (var grantedPermission in grantedUserGroupOverrides)
+        {
+            basePermissions |= grantedPermission;
+        }
+        
+        foreach (var disallowedPermission in disallowedUserGroupOverrides)
+        {
+            basePermissions &= ~disallowedPermission;
+        }
+        
+        // Now user group overrides have been processed, the individual user overrides need to be processed - which take 
+        // precedence.
+        
+        // There should only be one user override per package action.
+        var individualUserOverride = packageAction.UserPermissionOverrides
+            .FirstOrDefault(x => x.UserId == userId);
+
+        if (individualUserOverride is null)
+            return basePermissions;
+        
+        basePermissions |= individualUserOverride.AllowedPermissions;
+        basePermissions &= ~individualUserOverride.DisallowedPermissions;
+        
         return basePermissions;
     }
 
@@ -154,46 +186,7 @@ public static class DtoExtensions
         if (!userInPackage) 
             return userInPackage;
         
-        var userPermissionOverrides = packageAction.UserPermissionOverrides.FirstOrDefault(x => x.UserId == userId);
-        var userGroupPermissionOverrides = packageAction.TeamPermissionOverrides
-            .Where(x => x.UserGroup.Users
-                .Any(member => member.Uid == userId))
-            .ToList();
-
-        UserGroupPermissionOverrideDto? highestDeniedPermissionsOverride = null;
-        var highestDeniedPermissions = -1;
-        foreach (var userGroupOverride in userGroupPermissionOverrides)
-        {
-            // Finding the highest denied permissions (as this would be explicitly denying inherited permissions)
-
-            // Special case; this will ALWAYS be the highest denied permission.
-            if (userGroupOverride.DisallowedPermissions.HasFlag(PackageActionPermission.Administrator))
-            {
-                highestDeniedPermissionsOverride = userGroupOverride;
-                break;
-            }
-
-            var deniedPermissionCount 
-                = Enum.GetValues(typeof(PackageActionPermission))
-                    .Cast<PackageActionPermission>()
-                    .Count(e => userGroupOverride.DisallowedPermissions.HasFlag(e));
-
-            if (deniedPermissionCount <= highestDeniedPermissions) 
-                continue;
-            
-            highestDeniedPermissionsOverride = userGroupOverride;
-            highestDeniedPermissions = deniedPermissionCount;
-        }
-
-        // If we haven't got a 'highestDeniedPermissions' at this point; we should check 
-
-        if (userPermissionOverrides is null) 
-            return userInPackage;
-        var grantedPermissions = userPermissionOverrides.AllowedPermissions;
-        var deniedPermissions = userPermissionOverrides.DisallowedPermissions;
-        var inheritedPermissions = highestDeniedPermissionsOverride;
-        
-
+        actingPermissions = GenerateActingPermissions(packageAction, userId);
         return userInPackage;
     }
 
@@ -280,7 +273,7 @@ public static class DtoExtensions
         if(userPermissionOverrides)
             packageActionDto.UserPermissionOverrides = null!;
         if(teamPermissionOverrides)
-            packageActionDto.TeamPermissionOverrides = null!;
+            packageActionDto.UserGroupPermissionOverrides = null!;
         return packageActionDto;
     }
 

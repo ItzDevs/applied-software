@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using AppliedSoftware.Exceptions;
 using AppliedSoftware.Extensions;
 using AppliedSoftware.Models.Validators;
 using AppliedSoftware.Models.DTOs;
@@ -333,7 +334,7 @@ public class Repository(
                     { $"The requested team ({teamIdentifier}) could not be found." }));
         
         // Data validation; overloaded == operator to check that the objects are the same (CreateTeam must be the first parameter).
-        if (updateTeam == team)
+        if (updateTeam.HasIdenticalValues(team))
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.Conflict, new[] 
                     { "No changes detected." }));
@@ -437,6 +438,217 @@ public class Repository(
                 error: new(eErrorCode.ServiceUnavailable, new[] 
                 { "Failed to delete team.", 
                     "An unknown error occurred." }));
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<StatusContainer> AddUsersToTeam(
+        string teamIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(AddUsersToUserGroup)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+
+        if (!isInternal)
+        {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.AddUserToGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(userIds))
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new []
+                    { "User ids cannot be empty." }));
+        
+        var userIdsList = userIds.Replace(" ", "").Split(',').ToList();
+
+        TeamDto? team;
+        if(long.TryParse(teamIdentifier, out var teamId))
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.TeamId == teamId);
+        else
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == teamIdentifier);
+
+        if (team is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested team ({teamIdentifier}) could not be found." }));
+        var currentUsersInTeam = team.Users.Select(x => x.Uid).ToList();
+        // Filter out any users that are already in the group.
+        userIdsList = userIdsList.Where(x => !currentUsersInTeam.Contains(x)).ToList();
+
+        // Check that we have some users to add.
+        if (userIdsList.Count == 0) 
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.NothingToUpdate, new[]
+                    { "All the users were already in the user group." }));
+        var failedUsers = new List<string>();
+        try
+        {
+            foreach (var userId in userIdsList)
+            {
+                var user = await context.Users.FirstOrDefaultAsync(x => x.Uid == userId);
+                // If the user id isn't in the database we add it to our failed users list.
+                if (user is null)
+                {
+                    logger.LogWarning($"User with id {userId} was not found.");
+                    failedUsers.Add(userId);
+                    continue;
+                }
+
+                user.Teams.Add(team);
+            }
+            await context.SaveChangesAsync();
+
+            if (failedUsers.Count > 0)
+                return new(HttpStatusCode.BadRequest, 
+                    error: new(eErrorCode.ValidationError, 
+                        failedUsers.Select(x => $"User with id {x} was not found.").ToArray()));
+            
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not add users to team");
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.BadRequest, new[]
+                    { "Failed to add users to the team." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not add users to team");
+            return new(HttpStatusCode.InternalServerError,
+                error: new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to add users to the team.",
+                      "An unknown error occurred." }));
+        }
+    }
+    
+    /// <inheritdoc />
+    public async Task<StatusContainer> RemoveUsersFromTeam(
+        string teamIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false)
+    {
+        logger.LogInformation($"{nameof(RemoveUsersFromUserGroup)}");
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                CodeMessageResponse.Unauthorised);
+
+        if (!isInternal)
+        {
+            var validation = await ValidateUser(claims);
+            if (!validation.Success || validation.ResponseData.Body is null)
+                return new(validation.StatusCode, 
+                    error: validation.ResponseData.Error);
+
+            var userId = validation.ResponseData.Body.UserId;
+            var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+            if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
+                  permissionFlag.HasFlag(GlobalPermission.RemoveUserFromGroup)))
+            {
+                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                return new(HttpStatusCode.Forbidden, 
+                    CodeMessageResponse.ForbiddenAction);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(userIds))
+            return new(HttpStatusCode.BadRequest, 
+                error: new(eErrorCode.ValidationError, new []
+                    { "User ids cannot be empty." }));
+        
+        var userIdsList = userIds.Replace(" ", "").Split(',').ToList();
+
+        TeamDto? team;
+        if(long.TryParse(teamIdentifier, out var teamId))
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.TeamId == teamId);
+        else
+            team = await context.Teams
+                .Include(x => x.Users)
+                .FirstOrDefaultAsync(x => x.Name == teamIdentifier);
+
+        if (team is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[]
+                    { $"The requested team ({teamIdentifier}) could not be found." }));
+        var currentUsersInTeam = team.Users.Select(x => x.Uid).ToList();
+        // Filter out any users that are already in the group.
+        userIdsList = userIdsList.Where(x => !currentUsersInTeam.Contains(x)).ToList();
+
+        // Check that we have some users to remove.
+        if (userIdsList.Count == 0) 
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.NothingToUpdate, new[]
+                    { "None of the users were in the group." }));
+        var failedUsers = new List<string>();
+        try
+        {
+            foreach (var userId in userIdsList)
+            {
+                var user = await context.Users.FirstOrDefaultAsync(x => x.Uid == userId);
+                // If the user id isn't in the database we add it to our failed users list.
+                if (user is null)
+                {
+                    logger.LogWarning($"User with id {userId} was not found.");
+                    failedUsers.Add(userId);
+                    continue;
+                }
+
+                user.Teams.Remove(team);
+            }
+            await context.SaveChangesAsync();
+
+            if (failedUsers.Count > 0)
+            {
+                return new(HttpStatusCode.BadRequest, 
+                    error: new(eErrorCode.ValidationError, 
+                        failedUsers.Select(x => $"User with id {x} was not found.").ToArray()));
+            }
+            return HttpStatusCode.OK;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Could not remove users from team");
+            return new(HttpStatusCode.BadRequest,
+                error: new(eErrorCode.BadRequest, new[]
+                    { "Failed to add users to the team." }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not add users to team");
+            return new(HttpStatusCode.InternalServerError,
+                error: new(eErrorCode.ServiceUnavailable, new[]
+                    { "Failed to add users to the team.",
+                      "An unknown error occurred." }));
         }
     }
 
@@ -699,12 +911,10 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested user group ({userGroupIdentifier}) could not be found." }));
         
-        // Data validation; overloaded == operator to check that the objects are the same (CreateUserGroup must be the first parameter).
-        if (updateUserGroup == userGroup)
+        if (updateUserGroup.HasIdenticalValues(userGroup))
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.Conflict, new[] 
                     { "No changes detected." }));
-
         try
         {
             // Back any nulls with the ?? operator to fall back to the previous value.
@@ -737,6 +947,7 @@ public class Repository(
         }
     }
 
+    
     /// <inheritdoc />
     public async Task<StatusContainer> DeleteUserGroup(
         string userGroupIdentifier,
@@ -782,12 +993,10 @@ public class Repository(
             return new(HttpStatusCode.NotFound,
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested team ({userGroupIdentifier}) could not be found." }));
-
         try
         {
             userGroup.IsDeleted = true;
             userGroup.UpdatedAtUtc = DateTime.UtcNow;
-
             await context.SaveChangesAsync();
             return HttpStatusCode.OK;
         }
@@ -909,7 +1118,7 @@ public class Repository(
             var userId = validation.ResponseData.Body.UserId;
             var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
+                  permissionFlag.HasFlag(GlobalPermission.AddUserToGroup)))
             {
                 logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
                 return new(HttpStatusCode.Forbidden, 
@@ -1014,7 +1223,7 @@ public class Repository(
             var userId = validation.ResponseData.Body.UserId;
             var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.ModifyUserGroup)))
+                  permissionFlag.HasFlag(GlobalPermission.RemoveUserFromGroup)))
             {
                 logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
                 return new(HttpStatusCode.Forbidden, 
@@ -1213,7 +1422,7 @@ public class Repository(
                 .Where(x => x.Administrators.Any(y => y.Uid == userId) || 
                             x.Teams.Any(y => y.Users.Any(z => z.Uid == userId)) ||
                             x.Actions.Any(y => y.UserPermissionOverrides.Any(z => z.User.Uid == userId) || 
-                                               y.TeamPermissionOverrides.Any(z => z.UserGroup.Users.Any(w => w.Uid == userId))))
+                                               y.UserGroupPermissionOverrides.Any(z => z.UserGroup.Users.Any(w => w.Uid == userId))))
                 .ToListAsync();
         }
         else
@@ -1570,6 +1779,14 @@ public class Repository(
         if(isPackageActionsUsingId)
             packageAction = await context.PackageActions
                 .Include(x => x.Package)
+                    .ThenInclude(x => x.Teams)
+                    .ThenInclude(x => x.UserGroups)
+                        .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                    .ThenInclude(x => x.Teams)
+                    .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                    .ThenInclude(x => x.Administrators)
                 .FirstOrDefaultAsync(x => x.PackageActionId == packageActionId);
         else if (isPackageUsingId)
             packageAction = await context.PackageActions
@@ -1608,15 +1825,18 @@ public class Repository(
         
         var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                    permissionFlag.HasFlag(GlobalPermission.ReadPackage);
-        var userInPackage = packageAction.UserInPackageAction(userId, out _);
+        var userInPackage = packageAction.UserInPackageAction(userId, out var actingPermissions);
         
         // First layer of permission checks.
-        if(!flagPermissionsFound || 
-           !userInPackage)
+        if (!isInternal && 
+            (!flagPermissionsFound && 
+             !userInPackage))
+        {
+            logger.LogWarning($"User {userId} does not have the required permissions to run acts on the package action ({packageActionIdentifier})");
             return new(HttpStatusCode.Forbidden, 
                 error: CodeMessageResponse.ForbiddenAction);
+        }
         
-        // TODO: Add the remaining permission checks to each branch of the switch statement.
         var valid = false;
         ActionResponse? actionResponse = null;
         switch (actAction)
@@ -1626,25 +1846,50 @@ public class Repository(
             case ActAction.ViewEmail:
                 if(string.IsNullOrWhiteSpace(act.Email?.Search))
                     break;
-                
-                //if(!isInternal && )
-                
-                var emails
-                    = await GetEmails(packageAction, act.Email.Search);
-
-                var emailResponses 
-                    = emails.Select(email => new EmailPackageActionResponse(email));
-                actionResponse = new()
+                try
                 {
-                    Emails = emailResponses
-                };
-                valid = true;
+                    var emails
+                        = await GetEmails(
+                            packageAction, 
+                            act.Email.Search, 
+                            userId, 
+                            permissionFlag, 
+                            actingPermissions,
+                            isInternal);
+
+                    var emailResponses
+                        = emails?.Select(email => new EmailPackageActionResponse(email));
+                    actionResponse = new()
+                    {
+                        Emails = emailResponses
+                    };
+                    valid = true;
+                }
+                catch (MinimumPermissionsNotGrantedException ex)
+                {
+                    logger.LogWarning(ex.Message);
+                    return new(HttpStatusCode.Forbidden,
+                        error: CodeMessageResponse.ForbiddenAccess);
+                }
+                catch (UnauthorisedException ex)
+                {
+                    logger.LogWarning(ex.Message);
+                    return new(HttpStatusCode.Forbidden,
+                        error: CodeMessageResponse.ForbiddenAccess);
+                }
                 break;
             case ActAction.Upload:
                 if (act.Email?.File is null ||
                     act.Email.File.Length == 0)
                     break;
-                var uploadResponse = await UploadEmail(packageAction, act.Email.File);
+                var uploadResponse 
+                    = await UploadEmail(
+                        packageAction, 
+                        userId, 
+                        act.Email.File, 
+                        permissionFlag,
+                        actingPermissions, 
+                        isInternal);
                 if(!uploadResponse.Success)
                     return new(uploadResponse.StatusCode, 
                         error: uploadResponse.Error);
@@ -1659,7 +1904,11 @@ public class Repository(
                 var addAttachments 
                     = await AddAttachments(
                         act.Email.EmailId, 
-                        act.Email.Attachments);
+                        act.Email.Attachments,
+                        userId,
+                        permissionFlag,
+                        actingPermissions,
+                        isInternal);
                 if(!addAttachments.Success)
                     return new(addAttachments.StatusCode, 
                         error: addAttachments.Error);
@@ -1669,7 +1918,12 @@ public class Repository(
                 if (act.Email?.EmailId is null) 
                     break;
                 
-                var removeEmail = await RemoveEmail(act.Email.EmailId);
+                var removeEmail 
+                    = await RemoveEmail(
+                        act.Email.EmailId, userId,
+                        permissionFlag,
+                        actingPermissions,
+                        isInternal);
                 if(!removeEmail.Success)
                     return new(removeEmail.StatusCode, 
                         error: removeEmail.Error);
@@ -1691,23 +1945,99 @@ public class Repository(
         return new(HttpStatusCode.OK, actionResponse);
     }
 
-    private async Task<IList<EmailPackageActionDto>> GetEmails(PackageActionDto packageAction, string query)
+    private async Task<IList<EmailPackageActionDto>?> GetEmails(
+        PackageActionDto packageAction,
+        string query, 
+        string userId,
+        GlobalPermission flagPermissions, 
+        PackageActionPermission? actingPermissions, 
+        bool isInternal)
     {
         logger.LogInformation(nameof(GetEmails));
+
+        if (isInternal)
+        {
+            logger.LogInformation("Searching for emails internally");
+            return await context.EmailPackageActions
+                .Include(x => x.Attachments)
+                .Where(x => x.PackageActionId == packageAction.PackageActionId &&
+                            x.EmailTsVector.Matches(query))
+                .ToListAsync();
+        }
         
-        var emails = await context.EmailPackageActions
+        var flagPermissionsFound = flagPermissions.HasFlag(GlobalPermission.Administrator) || 
+                                   flagPermissions.HasFlag(GlobalPermission.ReadEmails);
+        
+        // This is the case of a user with global permissions that are not overridden by additional permissions.
+        if (flagPermissionsFound)
+        {
+            logger.LogInformation("Searching for emails using global permissions");
+            return await context.EmailPackageActions
+                .Include(x => x.Attachments)
+                .Where(x => x.PackageActionId == packageAction.PackageActionId &&
+                            x.EmailTsVector.Matches(query))
+                .ToListAsync();
+        }
+            
+
+        if (actingPermissions is null)
+            throw new UnauthorisedException();
+
+        var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+
+        if (nonNullActingPermissions.HasFlag(PackageActionPermission.DefaultRead))
+        {
+            logger.LogInformation($"Searching for emails with default read permissions flag ({PackageActionPermission.DefaultRead})");
+            return await context.EmailPackageActions
+                .Include(x => x.Attachments)
+                .Where(x => x.PackageActionId == packageAction.PackageActionId &&
+                            x.EmailTsVector.Matches(query))
+                .ToListAsync();
+        }
+
+        if (!nonNullActingPermissions.HasFlag(PackageActionPermission.ReadSelf)) 
+            throw new MinimumPermissionsNotGrantedException();
+        
+        logger.LogInformation($"Searching for emails without read alt permission flag ({PackageActionPermission.ReadSelf})");
+        return await context.EmailPackageActions
             .Include(x => x.Attachments)
             .Where(x => x.PackageActionId == packageAction.PackageActionId &&
-                        x.EmailTsVector.Matches(query))
+                        x.EmailTsVector.Matches(query) && x.UploadedById == userId)
             .ToListAsync();
-        return emails;
     } 
 
     private async Task<StatusContainer> UploadEmail(
         PackageActionDto packageAction, 
-        byte[] bytes)
+        string userId, 
+        byte[] bytes,
+        GlobalPermission flagPermissions, 
+        PackageActionPermission? actingPermissions, 
+        bool isInternal)
     {
         logger.LogInformation(nameof(UploadEmail));
+        if (!isInternal)
+        {
+            var flagsPermissionFound = flagPermissions.HasFlag(GlobalPermission.Administrator) ||
+                                       flagPermissions.HasFlag(GlobalPermission.UploadEmail);
+            if (!flagsPermissionFound)
+            {
+                logger.LogInformation("No global permissions, checking action permissions");
+                if(actingPermissions is null)
+                    throw new UnauthorisedException();
+                
+                var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+                if (!nonNullActingPermissions.HasFlag(PackageActionPermission.AddSelf))
+                {
+                    logger.LogInformation("The user does not have permission to upload emails");
+                    return new(HttpStatusCode.Forbidden,
+                        error: CodeMessageResponse.ForbiddenAction);
+                }
+            }
+            else
+                logger.LogInformation("Uploading email using global permissions");
+        }
+        else
+            logger.LogInformation("Uploading email internally");
         try
         {
             await using var stream = new MemoryStream(bytes);
@@ -1722,7 +2052,8 @@ public class Repository(
                 Sender = string.Join(", ", message.From.Mailboxes.Select(x => $"{x.Name} ({x.Address})")),
                 Subject = message.Subject,
                 Body = message.TextBody,
-                Attachments = attachments
+                Attachments = attachments,
+                UploadedById = userId
             };
 
             foreach (var attachmentEntity in message.Attachments)
@@ -1782,9 +2113,14 @@ public class Repository(
 
     private async Task<StatusContainer> AddAttachments(
         long? emailId,
-        IEnumerable<EmailAttachment> attachments)
+        IEnumerable<EmailAttachment> attachments,
+        string userId,
+        GlobalPermission flagPermissions, 
+        PackageActionPermission? actingPermissions, 
+        bool isInternal)
     {
         logger.LogInformation(nameof(AddAttachments));
+        
         try
         {
             var emailAction =
@@ -1793,6 +2129,27 @@ public class Repository(
 
             if (emailAction is null)
                 return HttpStatusCode.NotFound;
+            
+            if (!isInternal)
+            {
+                var flagsPermissionFound = flagPermissions.HasFlag(GlobalPermission.Administrator) ||
+                                           flagPermissions.HasFlag(GlobalPermission.UploadEmail);
+                if (!flagsPermissionFound)
+                {
+                    if(actingPermissions is null)
+                        throw new UnauthorisedException();
+                
+                    var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+                    if (!nonNullActingPermissions.HasFlag(PackageActionPermission.UpdateSelf))
+                        throw new MinimumPermissionsNotGrantedException();
+
+                    // Checking whether the user is not the uploader of the email, however has permissions to update 
+                    if (emailAction.UploadedById != userId &&
+                        !nonNullActingPermissions.HasFlag(PackageActionPermission.UpdateAlt))
+                        throw new UnauthorisedException(
+                            "Attempting to modify another user's data without the required permissions.");
+                }
+            }
 
             foreach (var attachment in attachments)
             {
@@ -1841,7 +2198,11 @@ public class Repository(
     }
 
     private async Task<StatusContainer> RemoveEmail(
-        long? emailId)
+        long? emailId,
+        string userId,
+        GlobalPermission flagPermissions, 
+        PackageActionPermission? actingPermissions, 
+        bool isInternal)
     {
         logger.LogInformation(nameof(RemoveEmail));
         try
@@ -1853,6 +2214,37 @@ public class Repository(
 
             if (emailAction is null)
                 return HttpStatusCode.NotFound;
+            
+            if (!isInternal)
+            {
+                var flagsPermissionFound = flagPermissions.HasFlag(GlobalPermission.Administrator) ||
+                                           flagPermissions.HasFlag(GlobalPermission.DeleteEmail);
+                if (!flagsPermissionFound)
+                {
+                    logger.LogInformation("No global permissions, checking action permissions");
+                    if(actingPermissions is null)
+                        throw new UnauthorisedException();
+                
+                    var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+                    if (!nonNullActingPermissions.HasFlag(PackageActionPermission.DeleteSelf))
+                    {
+                        logger.LogInformation("The user does not have permission to upload emails");
+                        return new(HttpStatusCode.Forbidden,
+                            error: CodeMessageResponse.ForbiddenAction);
+                    }
+
+                    // Checking whether the user is not the uploader of the email, however has permissions to update 
+                    if (emailAction.UploadedById != userId &&
+                        !nonNullActingPermissions.HasFlag(PackageActionPermission.DeleteAlt))
+                        return new(HttpStatusCode.Forbidden, 
+                            error: new(eErrorCode.Forbidden, new[] 
+                                { "You do not have permission to remove the email." }));
+                }
+                else
+                    logger.LogInformation("Removing email using global permissions");
+            }
+            else
+                logger.LogInformation("Removing email using internal permissions");
             
             var attachments = emailAction.Attachments.ToList();
             foreach (var attachment in attachments)
@@ -1873,31 +2265,24 @@ public class Repository(
         }
         catch (DbUpdateException ex)
         {
-            logger.LogError(ex, "Failed to save email - DbUpdateException");
+            logger.LogError(ex, "Failed to remove email - DbUpdateException");
             return new(HttpStatusCode.BadRequest,
                 new(eErrorCode.BadRequest, new[]
-                    { "Failed to save the email, please check the data again." }));
+                    { "Failed to remove the email, please ensure the email exists." }));
         }
         catch (IOException ex)
         {
-            logger.LogError(ex, "Failed to save email - IOException");
+            logger.LogError(ex, "Failed to remove email - IOException");
             return new(HttpStatusCode.InternalServerError,
                 new(eErrorCode.SaveFailed, new[]
-                    { "Failed to save one or more attachments." }));
-        }
-        catch (FormatException ex)
-        {
-            logger.LogError(ex, "Failed to save email - FormatException");
-            return new(HttpStatusCode.InternalServerError,
-                new(eErrorCode.SaveFailed, new[]
-                    { "The uploaded file was not in Email format (.eml)." }));
+                    { "Failed to remove one or more attachments." }));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create package");
+            logger.LogError(ex, "Failed to email package");
             return new(HttpStatusCode.InternalServerError,
                 new(eErrorCode.ServiceUnavailable, new[]
-                    { "Failed to create the package, please try again later." }));
+                    { "Failed to remove the email, please try again later." }));
         }
     }
 

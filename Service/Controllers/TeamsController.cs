@@ -38,4 +38,12 @@ public class TeamsController(
     [HttpDelete("{teamIdentifier}")]
     public async Task<IActionResult> DeleteTeam(string teamIdentifier)
         => (await repository.DeleteTeam(teamIdentifier)).ToResponse();
+    
+    [HttpPut("{teamIdentifier}/users/add")]
+    public async Task<IActionResult> AddUsersToTeam(string teamIdentifier, string? userIds)
+        => (await repository.AddUsersToTeam(teamIdentifier, userIds)).ToResponse();
+    
+    [HttpPut("{teamIdentifier}/users/remove")]
+    public async Task<IActionResult> RemoveUsersFromUserGroup(string teamIdentifier, string? userIds)
+        => (await repository.RemoveUsersFromTeam(teamIdentifier, userIds)).ToResponse();
 }

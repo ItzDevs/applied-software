@@ -153,6 +153,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     EmailTsVector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
                         .Annotation("Npgsql:TsVectorConfig", "english")
                         .Annotation("Npgsql:TsVectorProperties", new[] { "Subject", "Body", "Recipients", "Sender" }),
+                    UploadedById = table.Column<string>(type: "text", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -164,6 +165,12 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         column: x => x.PackageActionId,
                         principalTable: "package_action",
                         principalColumn: "PackageActionId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_email_package_action_user_UploadedById",
+                        column: x => x.UploadedById,
+                        principalTable: "user",
+                        principalColumn: "Uid",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -368,6 +375,11 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 column: "PackageActionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_email_package_action_UploadedById",
+                table: "email_package_action",
+                column: "UploadedById");
+
+            migrationBuilder.CreateIndex(
                 name: "email_tsv__indx",
                 table: "email_package_action",
                 column: "EmailTsVector")
@@ -478,10 +490,10 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 name: "user_group");
 
             migrationBuilder.DropTable(
-                name: "user");
+                name: "package_action");
 
             migrationBuilder.DropTable(
-                name: "package_action");
+                name: "user");
 
             migrationBuilder.DropTable(
                 name: "team");

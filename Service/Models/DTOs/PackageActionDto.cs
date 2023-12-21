@@ -49,7 +49,7 @@ public class PackageActionDto
     /// The overrides for the package action.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public virtual ICollection<UserGroupPermissionOverrideDto> TeamPermissionOverrides { get; set; } = new List<UserGroupPermissionOverrideDto>();
+    public virtual ICollection<UserGroupPermissionOverrideDto> UserGroupPermissionOverrides { get; set; } = new List<UserGroupPermissionOverrideDto>();
 
     /// <summary>
     /// When the package action is <see cref="PackageActionType.Email"/> this navigation property will contain the emails.

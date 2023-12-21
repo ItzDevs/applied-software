@@ -78,6 +78,30 @@ public interface IRepository
         bool isInternal = false);
 
     /// <summary>
+    /// Adds a user to a team if the required permissions are granted, or return an error that can be returned.
+    /// </summary>
+    /// <param name="teamIdentifier"></param>
+    /// <param name="userIds"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> AddUsersToTeam(
+        string teamIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false);
+
+    /// <summary>
+    /// Removes a user from a team if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="teamIdentifier"></param>
+    /// <param name="userIds"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer> RemoveUsersFromTeam(
+        string teamIdentifier,
+        string? userIds, // Comma separated list of user ids
+        bool isInternal = false);
+
+    /// <summary>
     /// Create a new user group if the required permissions are granted, or return an error that can be returned
     /// </summary>
     /// <param name="newUserGroup"></param>

@@ -13,7 +13,7 @@ using NpgsqlTypes;
 namespace AppliedSoftware.Workers.EFCore.Migrations
 {
     [DbContext(typeof(ExtranetContext))]
-    [Migration("20231215223502_InitialMigration")]
+    [Migration("20231221160210_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -93,10 +93,16 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UploadedById")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("EmailId")
                         .HasName("email_id_action__pk");
 
                     b.HasIndex("PackageActionId");
+
+                    b.HasIndex("UploadedById");
 
                     b.HasIndex(new[] { "EmailTsVector" }, "email_tsv__indx");
 
@@ -477,7 +483,15 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AppliedSoftware.Models.DTOs.UserDto", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("PackageAction");
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.GlobalPermissionDto", b =>
@@ -525,7 +539,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
             modelBuilder.Entity("AppliedSoftware.Models.DTOs.UserGroupPermissionOverrideDto", b =>
                 {
                     b.HasOne("AppliedSoftware.Models.DTOs.PackageActionDto", "PackageAction")
-                        .WithMany("TeamPermissionOverrides")
+                        .WithMany("UserGroupPermissionOverrides")
                         .HasForeignKey("PackageActionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -628,7 +642,7 @@ namespace AppliedSoftware.Workers.EFCore.Migrations
                 {
                     b.Navigation("Emails");
 
-                    b.Navigation("TeamPermissionOverrides");
+                    b.Navigation("UserGroupPermissionOverrides");
 
                     b.Navigation("UserPermissionOverrides");
                 });

@@ -24,16 +24,11 @@ public class CreateTeam
     /// The package this team belongs to, nullable as a team may not necessarily belong to a package when being created.
     /// </summary>
     public long? BelongsToPackageId { get; set; }
-    
-    public static bool operator ==(CreateTeam? left, TeamDto? right)
-    {
-        return left?.Name?.Equals(right?.Name) == true && 
-               left.Description?.Equals(right?.Description) == true && 
-               left.DefaultAllowedPermissions == right.DefaultAllowedPermissions;
-    }
 
-    public static bool operator !=(CreateTeam? left, TeamDto? right)
+    public bool HasIdenticalValues(TeamDto? right)
     {
-        return !(left == right);
+        return Name?.Equals(right?.Name) == true &&
+               Description?.Equals(right.Description) == true && 
+               DefaultAllowedPermissions == right.DefaultAllowedPermissions;
     }
 }

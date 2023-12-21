@@ -43,6 +43,7 @@ public enum PackageActionPermission
     /// </summary>
     DefaultRead = ReadSelf | ReadAlt,
     
+    //SelfPermissions = DefaultRead | UpdateSelf | DeleteSelf | AddSelf,
     
     // ---- BELOW THIS LINE ARE GENERALLY CONSIDERED ADMINISTRATIVE PERMISSIONS ---- \\
     
@@ -52,14 +53,11 @@ public enum PackageActionPermission
     DeleteAlt = 64,
     
     /// <summary>
-    /// Allows a user to remove information uploaded by other users (themself included) within a package action.
-    /// </summary>
-    RemoveAlt = 128,
-    
-    /// <summary>
     /// Allows a user to upload information acting on another users behalf within a package action.
     /// </summary>
     AddAlt = 256,
     
-    Administrator =  ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | RemoveAlt | AddAlt
+    UpdateAlt = 512,
+    
+    Administrator =  ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | AddAlt | UpdateAlt
 }

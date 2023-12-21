@@ -41,5 +41,17 @@ public enum GlobalPermission
     
     ReadUserGroup = 131072,
     
+    AddUserToGroup = 262144,
     
+    RemoveUserFromGroup = 524288,
+    
+    ReadEmails = 1048576,
+    
+    UploadEmail = 2097152,
+    
+    DeleteEmail = 4194304,
+    
+    AddAttachment = 8388608,
+    
+    Remove = 16777216,
 }
