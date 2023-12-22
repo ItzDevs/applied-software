@@ -6,7 +6,7 @@ namespace AppliedSoftware.Models.DTOs;
 
 public class UserDto
 {
-    internal UserDto()
+    public UserDto()
     {
         
     }

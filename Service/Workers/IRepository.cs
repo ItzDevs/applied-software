@@ -266,7 +266,7 @@ public interface IRepository
     /// </summary>
     /// <param name="attachmentId"></param>
     /// <param name="isInternal"></param>
-    /// <returns></returns>
+    /// <returns>A tuple containing the Stream of the file, the MIME type, and the filename (in that order).</returns>
     Task<StatusContainer<(Stream, string, string)>> DownloadAttachment(
         long attachmentId,
         bool isInternal = false);
