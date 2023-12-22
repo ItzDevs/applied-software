@@ -260,4 +260,14 @@ public interface IRepository
         string packageActionIdentifier,
         ActPackageAction act,
         bool isInternal = false);
+
+    /// <summary>
+    /// Download an attachment if the required permissions are granted, or return an error that can be returned to the user.
+    /// </summary>
+    /// <param name="attachmentId"></param>
+    /// <param name="isInternal"></param>
+    /// <returns></returns>
+    Task<StatusContainer<(Stream, string, string)>> DownloadAttachment(
+        long attachmentId,
+        bool isInternal = false);
 }

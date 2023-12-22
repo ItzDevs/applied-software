@@ -1736,18 +1736,26 @@ public class Repository(
 
         var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
                                    permissionFlag.HasFlag(GlobalPermission.ReadPackage);
-        // NOTE: This does not check for permission overrides.
-        var userInPackage = packageAction.UserInPackageAction(userId, out _);
+        packageAction.UserInPackageAction(userId, out var actingPermissions);
+
+        if (flagPermissionsFound)
+        {
+            logger.LogInformation("Getting package actions using global permissions");
+            return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
+        }
+
+        if (actingPermissions is null)
+            return new(HttpStatusCode.Forbidden,
+                error: CodeMessageResponse.ForbiddenAccess);
         
-         // If the user does not have the global permission Administrator or ReadPackage
-         if (flagPermissionsFound ||
-             // Then we need to check if the user is a member of the requested package
-             userInPackage) 
-             return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
+        var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+
+        if (nonNullActingPermissions.HasFlag(PackageActionPermission.ViewAction))
+            return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
          
-         logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
-         return new(HttpStatusCode.Forbidden, 
-             error: CodeMessageResponse.ForbiddenAction);
+        logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
+        return new(HttpStatusCode.Forbidden, 
+            error: CodeMessageResponse.ForbiddenAccess);
     }
 
     public async Task<StatusContainer<ActionResponse>> ActOnPackageAction(
@@ -1778,24 +1786,40 @@ public class Repository(
         PackageActionDto? packageAction;
         if(isPackageActionsUsingId)
             packageAction = await context.PackageActions
+                .Include(x => x.Package) 
+                 .ThenInclude(x => x.Teams)
+                  .ThenInclude(x => x.UserGroups)
+                   .ThenInclude(x => x.Users)
                 .Include(x => x.Package)
-                    .ThenInclude(x => x.Teams)
-                    .ThenInclude(x => x.UserGroups)
-                        .ThenInclude(x => x.Users)
+                 .ThenInclude(x => x.Teams)
+                   .ThenInclude(x => x.Users)
                 .Include(x => x.Package)
-                    .ThenInclude(x => x.Teams)
-                    .ThenInclude(x => x.Users)
-                .Include(x => x.Package)
-                    .ThenInclude(x => x.Administrators)
+                 .ThenInclude(x => x.Administrators)
                 .FirstOrDefaultAsync(x => x.PackageActionId == packageActionId);
         else if (isPackageUsingId)
             packageAction = await context.PackageActions
                 .Include(x => x.Package)
+                 .ThenInclude(x => x.Teams)
+                  .ThenInclude(x => x.UserGroups)
+                   .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                 .ThenInclude(x => x.Teams)
+                  .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                 .ThenInclude(x => x.Administrators)
                 .FirstOrDefaultAsync(x => x.Package.PackageId == packageId &&
                                           x.PackageActionType == packageActionType);
         else
             packageAction = await context.PackageActions
                 .Include(x => x.Package)
+                 .ThenInclude(x => x.Teams)
+                  .ThenInclude(x => x.UserGroups)
+                   .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                 .ThenInclude(x => x.Teams)
+                  .ThenInclude(x => x.Users)
+                .Include(x => x.Package)
+                 .ThenInclude(x => x.Administrators)
                 .FirstOrDefaultAsync(x => x.Package.Name == packageIdentifier &&
                                           x.PackageActionType == packageActionType);
         if(packageAction is null || 
@@ -2286,44 +2310,84 @@ public class Repository(
         }
     }
 
-    // public async Task<StatusContainer<FileStreamResult>> DownloadAttachment(
-    //     long attachmentId, 
-    //     bool isInternal = false)
-    // {
-    //     logger.LogInformation(nameof(DownloadAttachment));
-    //     
-    //     var claims = httpContextAccessor.HttpContext?.User;
-    //
-    //     // Authentication
-    //     if (claims is null && !isInternal)
-    //         return new(HttpStatusCode.Unauthorized,
-    //             error: CodeMessageResponse.Unauthorised);
-    //     
-    //     var attachment = await context.EmailAttachments
-    //         .Include(x => x.EmailPackageAction)
-    //         .ThenInclude(x => x.PackageAction)
-    //         .FirstOrDefaultAsync(a => a.AttachmentId == attachmentId);
-    //
-    //     if (attachment is null)
-    //         return new(HttpStatusCode.NotFound,
-    //             error: new(eErrorCode.NotFound, new[] 
-    //                 { "The attachment was not found." }));
-    //     
-    //     if(isInternal)
-    //         return new(HttpStatusCode.OK,
-    //             new (File.OpenRead(attachment.FilePath), 
-    //                 attachment.FileType));
-    //     var validation = await ValidateUser(claims);
-    //     if(!validation.Success || validation.ResponseData.Body is null)
-    //         return new(validation.StatusCode, 
-    //             error: validation.ResponseData.Error);
-    //
-    //     var userId = validation.ResponseData.Body.UserId;
-    //     var permissionFlag = validation.ResponseData.Body.PermissionFlag;
-    //     
-    //     var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
-    //                                permissionFlag.HasFlag(GlobalPermission.ReadPackage);
-    //     var userInPackage = attachment.EmailPackageAction.PackageAction.UserInPackageAction(userId, out _);
-    //     
-    // }
+    public async Task<StatusContainer<(Stream, string, string)>> DownloadAttachment(
+        long attachmentId, 
+        bool isInternal = false)
+    {
+        logger.LogInformation(nameof(DownloadAttachment));
+        
+        var claims = httpContextAccessor.HttpContext?.User;
+    
+        // Authentication
+        if (claims is null && !isInternal)
+            return new(HttpStatusCode.Unauthorized,
+                error: CodeMessageResponse.Unauthorised);
+        
+        var attachment = await context.EmailAttachments
+            .AsNoTracking()
+            .Include(x => x.EmailPackageAction)
+             .ThenInclude(x => x.PackageAction)
+              .ThenInclude(x => x.Package)
+               .ThenInclude(x => x.Teams)
+                .ThenInclude(x => x.UserGroups)
+                 .ThenInclude(x => x.Users)
+            .Include(x => x.EmailPackageAction)
+             .ThenInclude(x => x.PackageAction)
+              .ThenInclude(x => x.Package)
+               .ThenInclude(x => x.Teams)
+                .ThenInclude(x => x.Users)
+            .Include(x => x.EmailPackageAction)
+             .ThenInclude(x => x.PackageAction)
+              .ThenInclude(x => x.Package)
+               .ThenInclude(x => x.Administrators)
+            .FirstOrDefaultAsync(a => a.AttachmentId == attachmentId);
+    
+        if (attachment is null)
+            return new(HttpStatusCode.NotFound,
+                error: new(eErrorCode.NotFound, new[] 
+                    { "The attachment was not found." }));
+
+        if (isInternal)
+        {
+            logger.LogInformation("Allowing file download internally");
+            return new(HttpStatusCode.OK,
+                (File.OpenRead(attachment.FilePath), 
+                    attachment.FileType, 
+                    attachment.Name.Split("__")[^1]));
+        }
+            
+        var validation = await ValidateUser(claims);
+        if(!validation.Success || validation.ResponseData.Body is null)
+            return new(validation.StatusCode, 
+                error: validation.ResponseData.Error);
+    
+        var userId = validation.ResponseData.Body.UserId;
+        var permissionFlag = validation.ResponseData.Body.PermissionFlag;
+        
+        var flagPermissionsFound = permissionFlag.HasFlag(GlobalPermission.Administrator) ||
+                                   permissionFlag.HasFlag(GlobalPermission.ReadPackage);
+        attachment.EmailPackageAction.PackageAction.UserInPackageAction(userId, out var actingPermissions);
+
+        if (!flagPermissionsFound)
+        {
+            logger.LogInformation("No global permissions, checking action permissions");
+            if(actingPermissions is null)
+                throw new UnauthorisedException();
+                
+            var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+            if (nonNullActingPermissions.HasFlag(PackageActionPermission.ReadSelf))
+                return new(HttpStatusCode.OK,
+                    (File.OpenRead(attachment.FilePath), 
+                        attachment.FileType, 
+                        attachment.Name.Split("__")[^1]));
+            logger.LogInformation("User has no permission to download attachments");
+            return new(HttpStatusCode.Forbidden,
+                error: CodeMessageResponse.ForbiddenAction);
+        }
+        logger.LogInformation("Allowing file download using global permissions");
+        return new(HttpStatusCode.OK,
+            (File.OpenRead(attachment.FilePath), 
+                attachment.FileType, 
+                attachment.Name.Split("__")[^1]));
+    }
 }

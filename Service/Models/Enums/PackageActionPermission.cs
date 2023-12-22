@@ -43,6 +43,13 @@ public enum PackageActionPermission
     /// </summary>
     DefaultRead = ReadSelf | ReadAlt,
     
+    /// <summary>
+    /// View actions allow a user to see package actions within a package,
+    /// when defined at a Package/Team level the permission allows all package actions to be viewed.
+    /// </summary>
+    ViewAction = 1024,
+
+    
     //SelfPermissions = DefaultRead | UpdateSelf | DeleteSelf | AddSelf,
     
     // ---- BELOW THIS LINE ARE GENERALLY CONSIDERED ADMINISTRATIVE PERMISSIONS ---- \\
@@ -59,5 +66,22 @@ public enum PackageActionPermission
     
     UpdateAlt = 512,
     
-    Administrator =  ReadSelf | DeleteSelf | UpdateSelf | AddSelf | DeleteAlt | AddAlt | UpdateAlt
+    
+    CreateAction = 2048,
+    
+    UpdateAction = 4096,
+    
+    DeleteAction = 8192,
+    
+    Administrator =  ReadSelf     | 
+                     DeleteSelf   | 
+                     UpdateSelf   | 
+                     AddSelf      | 
+                     DeleteAlt    | 
+                     AddAlt       | 
+                     UpdateAlt    | 
+                     ViewAction   | 
+                     CreateAction | 
+                     UpdateAction | 
+                     DeleteAction
 }
