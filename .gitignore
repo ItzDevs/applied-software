@@ -15,3 +15,5 @@ http.http
 
 */CDN/*
 /Service/AppliedSoftware.sln.DotSettings.user
+/AppliedSoftwareTests/Data/*
+/AppliedSoftware.sln.DotSettings.user

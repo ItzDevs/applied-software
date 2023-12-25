@@ -466,9 +466,9 @@ public class Repository(
             var userId = validation.ResponseData.Body.UserId;
             var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.AddUserToGroup)))
+                  permissionFlag.HasFlag(GlobalPermission.AddUserToTeam)))
             {
-                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                logger.LogWarning($"User {userId} does not have the required permissions to update a team");
                 return new(HttpStatusCode.Forbidden, 
                     CodeMessageResponse.ForbiddenAction);
             }
@@ -503,7 +503,7 @@ public class Repository(
         if (userIdsList.Count == 0) 
             return new(HttpStatusCode.BadRequest,
                 error: new(eErrorCode.NothingToUpdate, new[]
-                    { "All the users were already in the user group." }));
+                    { "All the users were already in the team." }));
         var failedUsers = new List<string>();
         try
         {
@@ -571,9 +571,9 @@ public class Repository(
             var userId = validation.ResponseData.Body.UserId;
             var permissionFlag = validation.ResponseData.Body.PermissionFlag;
             if (!(permissionFlag.HasFlag(GlobalPermission.Administrator) || 
-                  permissionFlag.HasFlag(GlobalPermission.RemoveUserFromGroup)))
+                  permissionFlag.HasFlag(GlobalPermission.RemoveUserFromTeam)))
             {
-                logger.LogWarning($"User {userId} does not have the required permissions to update a user group");
+                logger.LogWarning($"User {userId} does not have the required permissions to update the team");
                 return new(HttpStatusCode.Forbidden, 
                     CodeMessageResponse.ForbiddenAction);
             }
@@ -602,13 +602,13 @@ public class Repository(
                     { $"The requested team ({teamIdentifier}) could not be found." }));
         var currentUsersInTeam = team.Users.Select(x => x.Uid).ToList();
         // Filter out any users that are already in the group.
-        userIdsList = userIdsList.Where(x => !currentUsersInTeam.Contains(x)).ToList();
+        userIdsList = userIdsList.Where(x => currentUsersInTeam.Contains(x)).ToList();
 
         // Check that we have some users to remove.
         if (userIdsList.Count == 0) 
             return new(HttpStatusCode.BadRequest,
                 error: new(eErrorCode.NothingToUpdate, new[]
-                    { "None of the users were in the group." }));
+                    { "None of the users were in the team." }));
         var failedUsers = new List<string>();
         try
         {
@@ -1783,45 +1783,25 @@ public class Repository(
                 error: new(eErrorCode.ValidationError, new[]
                     { "The package action identifier is not valid." }));
         
-        PackageActionDto? packageAction;
-        if(isPackageActionsUsingId)
-            packageAction = await context.PackageActions
+        Enum.TryParse<ActAction>(act.Action, true, out var actAction);
+        
+        var packageAction 
+            = await context.PackageActions
                 .Include(x => x.Package) 
                  .ThenInclude(x => x.Teams)
                   .ThenInclude(x => x.UserGroups)
                    .ThenInclude(x => x.Users)
                 .Include(x => x.Package)
                  .ThenInclude(x => x.Teams)
-                   .ThenInclude(x => x.Users)
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Administrators)
-                .FirstOrDefaultAsync(x => x.PackageActionId == packageActionId);
-        else if (isPackageUsingId)
-            packageAction = await context.PackageActions
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Teams)
-                  .ThenInclude(x => x.UserGroups)
-                   .ThenInclude(x => x.Users)
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Teams)
                   .ThenInclude(x => x.Users)
                 .Include(x => x.Package)
                  .ThenInclude(x => x.Administrators)
-                .FirstOrDefaultAsync(x => x.Package.PackageId == packageId &&
-                                          x.PackageActionType == packageActionType);
-        else
-            packageAction = await context.PackageActions
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Teams)
-                  .ThenInclude(x => x.UserGroups)
-                   .ThenInclude(x => x.Users)
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Teams)
-                  .ThenInclude(x => x.Users)
-                .Include(x => x.Package)
-                 .ThenInclude(x => x.Administrators)
-                .FirstOrDefaultAsync(x => x.Package.Name == packageIdentifier &&
-                                          x.PackageActionType == packageActionType);
+                .FirstOrDefaultAsync(x => (!isPackageActionsUsingId || x.PackageActionId == packageActionId) &&
+                                          (!isPackageUsingId || x.Package.PackageId == packageId &&
+                                                    x.PackageActionType == packageActionType) && 
+                                          (isPackageActionsUsingEnum || x.Package.Name == packageIdentifier && 
+                                                    x.PackageActionType == packageActionType));
+       
         if(packageAction is null || 
            // Not only checking if the package exists, but also that the provided packageIdentifier in 
            // the endpoint is correct for the package action.
@@ -1831,13 +1811,7 @@ public class Repository(
                 error: new(eErrorCode.NotFound, new[]
                     { $"The requested package action ({packageActionIdentifier}) for the package ({packageIdentifier}) could not be found." }));
 
-        var validActionType = Enum.TryParse<ActAction>(act.Action, true, out var actAction);
-        // Validation on the action
-        if(!validActionType || 
-           actAction == ActAction.None)
-            return new(HttpStatusCode.BadRequest, 
-                error: new(eErrorCode.ValidationError, new[] 
-                    { "Invalid action provided." }));
+        
 
         var validation = await ValidateUser(claims);
         if(!validation.Success || validation.ResponseData.Body is null)
@@ -1868,14 +1842,15 @@ public class Repository(
             // Current Search internally redirects to ViewEmail
             case ActAction.Search:
             case ActAction.ViewEmail:
-                if(string.IsNullOrWhiteSpace(act.Email?.Search))
+                var searchString = act.Filter ?? act.Email?.Search;
+                if(string.IsNullOrWhiteSpace(searchString))
                     break;
                 try
                 {
                     var emails
                         = await GetEmails(
                             packageAction, 
-                            act.Email.Search, 
+                            searchString, 
                             userId, 
                             permissionFlag, 
                             actingPermissions,
@@ -1916,7 +1891,7 @@ public class Repository(
                         isInternal);
                 if(!uploadResponse.Success)
                     return new(uploadResponse.StatusCode, 
-                        error: uploadResponse.Error);
+                        error: uploadResponse.ResponseData?.Error);
                 valid = true;
                 break;
             case ActAction.AddAttachments:
@@ -1935,7 +1910,7 @@ public class Repository(
                         isInternal);
                 if(!addAttachments.Success)
                     return new(addAttachments.StatusCode, 
-                        error: addAttachments.Error);
+                        error: addAttachments.ResponseData?.Error);
                 valid = true;
                 break; 
             case ActAction.Remove:
@@ -1950,12 +1925,14 @@ public class Repository(
                         isInternal);
                 if(!removeEmail.Success)
                     return new(removeEmail.StatusCode, 
-                        error: removeEmail.Error);
+                        error: removeEmail.ResponseData?.Error);
                 valid = true;
                 break;
             case ActAction.None: // Unreachable
             default:
-                throw new ArgumentOutOfRangeException(nameof(act.Action));
+                return new(HttpStatusCode.BadRequest, 
+                    error: new(eErrorCode.ValidationError, new[] 
+                        { "Invalid action provided." }));
         }
         if(!valid)
             return new(HttpStatusCode.BadRequest, 
@@ -2123,7 +2100,7 @@ public class Repository(
         {
             logger.LogError(ex, "Failed to save email - FormatException");
             return new(HttpStatusCode.InternalServerError,
-                new(eErrorCode.SaveFailed, new[]
+                new(eErrorCode.InvalidFormat, new[]
                     { "The uploaded file was not in Email format (.eml)." }));
         }
         catch (Exception ex)

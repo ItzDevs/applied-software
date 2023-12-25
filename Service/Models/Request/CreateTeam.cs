@@ -27,8 +27,8 @@ public class CreateTeam
 
     public bool HasIdenticalValues(TeamDto? right)
     {
-        return Name?.Equals(right?.Name) == true &&
-               Description?.Equals(right.Description) == true && 
+        return Name?.Equals(right?.Name, StringComparison.OrdinalIgnoreCase) == true &&
+               Description?.Equals(right.Description, StringComparison.OrdinalIgnoreCase) == true && 
                DefaultAllowedPermissions == right.DefaultAllowedPermissions;
     }
 }

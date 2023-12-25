@@ -18,7 +18,7 @@ public readonly struct StatusContainer
     {
         StatusCode = statusCode;
         Success = ((int)statusCode >= 200 && (int)statusCode < 300);
-        Error = null;
+        ResponseData = null;
     }
     /// <summary>
     /// Constructor.
@@ -29,7 +29,7 @@ public readonly struct StatusContainer
     {
         StatusCode = statusCode;
         Success = ((int)statusCode >= 200 && (int)statusCode < 300);
-        Error = error;
+        ResponseData = new(Success ? 1 : 0, error);
     }
 
     public static implicit operator StatusContainer(HttpStatusCode code) 
@@ -42,11 +42,9 @@ public readonly struct StatusContainer
     public HttpStatusCode StatusCode { get; }
 
     /// <summary>
-    /// Error Response.
+    /// Response data.
     /// </summary>
-    [JsonPropertyName("error")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public CodeMessageResponse? Error { get; }
+    public ResponseObject<object>? ResponseData { get; }
 
     /// <summary>
     /// Success
@@ -55,7 +53,7 @@ public readonly struct StatusContainer
     public bool Success { get; }
 
     public ObjectResult ToResponse()
-        => new(Error ?? null)
+        => new(ResponseData ?? null)
         {
             StatusCode = (int)StatusCode
         };

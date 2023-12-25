@@ -76,4 +76,9 @@ public enum eErrorCode
     /// Failed to save a file.
     /// </summary>
     SaveFailed = 431,
+    
+    /// <summary>
+    /// The provided data was in an invalid format.
+    /// </summary>
+    InvalidFormat = 432
 }

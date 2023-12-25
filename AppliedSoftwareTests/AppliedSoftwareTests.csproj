@@ -27,4 +27,16 @@
       <ProjectReference Include="..\Service\AppliedSoftware.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="Data\attachment1.txt">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="Data\attachment2.pdf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="Data\testing.eml">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
