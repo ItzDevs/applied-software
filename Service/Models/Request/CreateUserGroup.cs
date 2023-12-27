@@ -12,11 +12,11 @@ public class CreateUserGroup
     public string? Description { get; set; } = null;
     
     // Nullable as it by default can inherit permissions from the Team.
-    public PackageActionPermission? AllowedPermissions { get; set; }
+    public PackageUserPermission? AllowedPermissions { get; set; }
     
     // Nullable as it by default as permissions that are not granted by the Team 
     // will not be granted otherwise.
-    public PackageActionPermission? DisallowedPermissions { get; set; }
+    public PackageUserPermission? DisallowedPermissions { get; set; }
 
     public bool HasIdenticalValues(UserGroupDto? right)
     {

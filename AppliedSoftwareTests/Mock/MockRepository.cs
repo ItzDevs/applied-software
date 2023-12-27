@@ -13,14 +13,14 @@ namespace AppliedSoftwareTests.Mock;
 /// 
 /// </summary>
 /// <param name="globalPermission"></param>
-/// <param name="packageActionPermission"></param>
+/// <param name="packageUserPermission"></param>
 /// <param name="mockUserInX">Whether the responses should
 /// pretend that the user has permission to view from being a member.</param>
 public class MockRepository(
     // These permissions are passed in so that a lot of the time checking the user id is not needed; this gives more control
     // over the tests. hayley
     GlobalPermission globalPermission,
-    PackageActionPermission packageActionPermission,
+    PackageUserPermission packageUserPermission,
     bool mockUserInX = false)
     : IRepository
 {
@@ -128,7 +128,7 @@ public class MockRepository(
             {
                 Name = "example",
                 Description = "example",
-                DefaultAllowedPermissions = PackageActionPermission.DefaultRead
+                DefaultAllowedPermissions = PackageUserPermission.DefaultRead
             }))
             return new(HttpStatusCode.BadRequest, 
                 error: new(eErrorCode.Conflict, []));
@@ -327,7 +327,7 @@ public class MockRepository(
            {
                Name = "example",
                Description = "example",
-               AllowedPermissions = PackageActionPermission.DefaultRead,
+               AllowedPermissions = PackageUserPermission.DefaultRead,
                DisallowedPermissions = null,
                TeamId = 1
            }))
@@ -637,7 +637,7 @@ public class MockRepository(
                     return new(HttpStatusCode.BadRequest, 
                         error: new(eErrorCode.ValidationError, []));
                 
-                if(!packageActionPermission.HasFlag(PackageActionPermission.ReadSelf))
+                if(!packageUserPermission.HasFlag(PackageUserPermission.ReadSelf))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAccess);
                 
@@ -648,7 +648,7 @@ public class MockRepository(
                     return new(HttpStatusCode.BadRequest,
                         error: new(eErrorCode.ValidationError, []));
 
-                if (!packageActionPermission.HasFlag(PackageActionPermission.AddSelf))
+                if (!packageUserPermission.HasFlag(PackageUserPermission.AddSelf))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAction);
             {
@@ -675,12 +675,12 @@ public class MockRepository(
 
                 // If the user doesn't have permission to update their own emails, 
                 // then we can assume that they are not allowed to perform any action pertaining to updating.
-                if (!packageActionPermission.HasFlag(PackageActionPermission.UpdateSelf))
+                if (!packageUserPermission.HasFlag(PackageUserPermission.UpdateSelf))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAction);
             {
                 // Attempting to update an attachment that doesn't belong to them.
-                if(!mockUserInX && !packageActionPermission.HasFlag(PackageActionPermission.UpdateAlt))
+                if(!mockUserInX && !packageUserPermission.HasFlag(PackageUserPermission.UpdateAlt))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAction);
                 
@@ -691,11 +691,11 @@ public class MockRepository(
                     return new(HttpStatusCode.BadRequest, 
                         error: new(eErrorCode.ValidationError, []));
                 
-                if(!packageActionPermission.HasFlag(PackageActionPermission.DeleteSelf))
+                if(!packageUserPermission.HasFlag(PackageUserPermission.DeleteSelf))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAction);
                 
-                if(!mockUserInX && !packageActionPermission.HasFlag(PackageActionPermission.DeleteAlt))
+                if(!mockUserInX && !packageUserPermission.HasFlag(PackageUserPermission.DeleteAlt))
                     return new(HttpStatusCode.Forbidden,
                         error: CodeMessageResponse.ForbiddenAction);
                 

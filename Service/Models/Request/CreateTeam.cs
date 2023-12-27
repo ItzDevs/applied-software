@@ -18,7 +18,7 @@ public class CreateTeam
     /// <summary>
     /// The default allowed permissions for packages in the team.
     /// </summary>
-    public PackageActionPermission? DefaultAllowedPermissions { get; set; }
+    public PackageUserPermission? DefaultAllowedPermissions { get; set; }
     
     /// <summary>
     /// The package this team belongs to, nullable as a team may not necessarily belong to a package when being created.

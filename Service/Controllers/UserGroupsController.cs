@@ -46,6 +46,5 @@ public class UserGroupsController(
     [HttpPut("{userGroupIdentifier}/users/remove")]
     public async Task<IActionResult> RemoveUsersFromUserGroup(string userGroupIdentifier, string? userIds)
         => (await repository.RemoveUsersFromUserGroup(userGroupIdentifier, userIds)).ToResponse();
-    
-    
 }
+

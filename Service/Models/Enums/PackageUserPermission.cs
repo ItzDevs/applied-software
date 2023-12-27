@@ -1,7 +1,7 @@
 namespace AppliedSoftware.Models.Enums;
 
 [Flags]
-public enum PackageActionPermission
+public enum PackageUserPermission
 {
     /// <summary>
     /// No Permissions / Default.

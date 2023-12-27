@@ -141,7 +141,7 @@ public class Repository(
             {
                 Name = newTeam.Name,
                 Description = newTeam.Description,
-                DefaultAllowedPermissions = newTeam.DefaultAllowedPermissions ?? PackageActionPermission.None,
+                DefaultAllowedPermissions = newTeam.DefaultAllowedPermissions ?? PackageUserPermission.None,
                 PackageId = newTeam.BelongsToPackageId,
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
@@ -1748,9 +1748,9 @@ public class Repository(
             return new(HttpStatusCode.Forbidden,
                 error: CodeMessageResponse.ForbiddenAccess);
         
-        var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+        var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
 
-        if (nonNullActingPermissions.HasFlag(PackageActionPermission.ViewAction))
+        if (nonNullActingPermissions.HasFlag(PackageUserPermission.ViewAction))
             return new(HttpStatusCode.OK, packageAction.RemoveNavigationProperties());
          
         logger.LogWarning($"User {userId} does not have the required permissions to read the package (package actions)");
@@ -1951,7 +1951,7 @@ public class Repository(
         string query, 
         string userId,
         GlobalPermission flagPermissions, 
-        PackageActionPermission? actingPermissions, 
+        PackageUserPermission? actingPermissions, 
         bool isInternal)
     {
         logger.LogInformation(nameof(GetEmails));
@@ -1984,11 +1984,11 @@ public class Repository(
         if (actingPermissions is null)
             throw new UnauthorisedException();
 
-        var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
+        var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
 
-        if (nonNullActingPermissions.HasFlag(PackageActionPermission.DefaultRead))
+        if (nonNullActingPermissions.HasFlag(PackageUserPermission.DefaultRead))
         {
-            logger.LogInformation($"Searching for emails with default read permissions flag ({PackageActionPermission.DefaultRead})");
+            logger.LogInformation($"Searching for emails with default read permissions flag ({PackageUserPermission.DefaultRead})");
             return await context.EmailPackageActions
                 .Include(x => x.Attachments)
                 .Where(x => x.PackageActionId == packageAction.PackageActionId &&
@@ -1996,10 +1996,10 @@ public class Repository(
                 .ToListAsync();
         }
 
-        if (!nonNullActingPermissions.HasFlag(PackageActionPermission.ReadSelf)) 
+        if (!nonNullActingPermissions.HasFlag(PackageUserPermission.ReadSelf)) 
             throw new MinimumPermissionsNotGrantedException();
         
-        logger.LogInformation($"Searching for emails without read alt permission flag ({PackageActionPermission.ReadSelf})");
+        logger.LogInformation($"Searching for emails without read alt permission flag ({PackageUserPermission.ReadSelf})");
         return await context.EmailPackageActions
             .Include(x => x.Attachments)
             .Where(x => x.PackageActionId == packageAction.PackageActionId &&
@@ -2012,7 +2012,7 @@ public class Repository(
         string userId, 
         byte[] bytes,
         GlobalPermission flagPermissions, 
-        PackageActionPermission? actingPermissions, 
+        PackageUserPermission? actingPermissions, 
         bool isInternal)
     {
         logger.LogInformation(nameof(UploadEmail));
@@ -2026,8 +2026,8 @@ public class Repository(
                 if(actingPermissions is null)
                     throw new UnauthorisedException();
                 
-                var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
-                if (!nonNullActingPermissions.HasFlag(PackageActionPermission.AddSelf))
+                var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
+                if (!nonNullActingPermissions.HasFlag(PackageUserPermission.AddSelf))
                 {
                     logger.LogInformation("The user does not have permission to upload emails");
                     return new(HttpStatusCode.Forbidden,
@@ -2117,7 +2117,7 @@ public class Repository(
         IEnumerable<EmailAttachment> attachments,
         string userId,
         GlobalPermission flagPermissions, 
-        PackageActionPermission? actingPermissions, 
+        PackageUserPermission? actingPermissions, 
         bool isInternal)
     {
         logger.LogInformation(nameof(AddAttachments));
@@ -2140,13 +2140,13 @@ public class Repository(
                     if(actingPermissions is null)
                         throw new UnauthorisedException();
                 
-                    var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
-                    if (!nonNullActingPermissions.HasFlag(PackageActionPermission.UpdateSelf))
+                    var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
+                    if (!nonNullActingPermissions.HasFlag(PackageUserPermission.UpdateSelf))
                         throw new MinimumPermissionsNotGrantedException();
 
                     // Checking whether the user is not the uploader of the email, however has permissions to update 
                     if (emailAction.UploadedById != userId &&
-                        !nonNullActingPermissions.HasFlag(PackageActionPermission.UpdateAlt))
+                        !nonNullActingPermissions.HasFlag(PackageUserPermission.UpdateAlt))
                         throw new UnauthorisedException(
                             "Attempting to modify another user's data without the required permissions.");
                 }
@@ -2202,7 +2202,7 @@ public class Repository(
         long? emailId,
         string userId,
         GlobalPermission flagPermissions, 
-        PackageActionPermission? actingPermissions, 
+        PackageUserPermission? actingPermissions, 
         bool isInternal)
     {
         logger.LogInformation(nameof(RemoveEmail));
@@ -2226,8 +2226,8 @@ public class Repository(
                     if(actingPermissions is null)
                         throw new UnauthorisedException();
                 
-                    var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
-                    if (!nonNullActingPermissions.HasFlag(PackageActionPermission.DeleteSelf))
+                    var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
+                    if (!nonNullActingPermissions.HasFlag(PackageUserPermission.DeleteSelf))
                     {
                         logger.LogInformation("The user does not have permission to upload emails");
                         return new(HttpStatusCode.Forbidden,
@@ -2236,7 +2236,7 @@ public class Repository(
 
                     // Checking whether the user is not the uploader of the email, however has permissions to update 
                     if (emailAction.UploadedById != userId &&
-                        !nonNullActingPermissions.HasFlag(PackageActionPermission.DeleteAlt))
+                        !nonNullActingPermissions.HasFlag(PackageUserPermission.DeleteAlt))
                         return new(HttpStatusCode.Forbidden, 
                             error: new(eErrorCode.Forbidden, new[] 
                                 { "You do not have permission to remove the email." }));
@@ -2351,8 +2351,8 @@ public class Repository(
             if(actingPermissions is null)
                 throw new UnauthorisedException();
                 
-            var nonNullActingPermissions = (PackageActionPermission) actingPermissions;
-            if (nonNullActingPermissions.HasFlag(PackageActionPermission.ReadSelf))
+            var nonNullActingPermissions = (PackageUserPermission) actingPermissions;
+            if (nonNullActingPermissions.HasFlag(PackageUserPermission.ReadSelf))
                 return new(HttpStatusCode.OK,
                     (File.OpenRead(attachment.FilePath), 
                         attachment.FileType, 

@@ -23,7 +23,7 @@ public class TeamDto
     /// <summary>
     /// The team's default allowed permissions.
     /// </summary>
-    public PackageActionPermission DefaultAllowedPermissions { get; set; } = PackageActionPermission.None;
+    public PackageUserPermission DefaultAllowedPermissions { get; set; } = PackageUserPermission.None;
     
     /// <summary>
     /// Whether the team has been deleted.

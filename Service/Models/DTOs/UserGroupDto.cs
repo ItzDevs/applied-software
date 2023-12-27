@@ -31,12 +31,12 @@ public class UserGroupDto
     /// <summary>
     /// The allowed permissions for the user group.
     /// </summary>
-    public PackageActionPermission? AllowedPermissions { get; set; }
+    public PackageUserPermission? AllowedPermissions { get; set; }
     
     /// <summary>
     /// The explicitly denied permissions for the user group.
     /// </summary>
-    public PackageActionPermission? DisallowedPermissions { get; set; }
+    public PackageUserPermission? DisallowedPermissions { get; set; }
     
     /// <summary>
     /// Whether the user group is active.

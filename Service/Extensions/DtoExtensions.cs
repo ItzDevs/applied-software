@@ -46,13 +46,13 @@ public static class DtoExtensions
         return isInPackage;
     }
 
-    private static PackageActionPermission ProcessUserGroupPermissions(
+    private static PackageUserPermission ProcessUserGroupPermissions(
         PackageDto package,
-        PackageActionPermission basePermissions,
+        PackageUserPermission basePermissions,
         string userId)
     {
-        var grantedUserGroupOverrides = new List<PackageActionPermission>();
-        var disallowedUserGroupOverrides = new List<PackageActionPermission>();
+        var grantedUserGroupOverrides = new List<PackageUserPermission>();
+        var disallowedUserGroupOverrides = new List<PackageUserPermission>();
 
         // Flatten all the user groups and filter out any group that the user is not a member of.
         var userGroupsFlat = package.Teams
@@ -63,10 +63,10 @@ public static class DtoExtensions
         foreach (var userGroup in userGroupsFlat)
         {
             if(userGroup.AllowedPermissions is not null)
-                grantedUserGroupOverrides.Add((PackageActionPermission) userGroup.AllowedPermissions);
+                grantedUserGroupOverrides.Add((PackageUserPermission) userGroup.AllowedPermissions);
             
             if(userGroup.DisallowedPermissions is not null)
-                disallowedUserGroupOverrides.Add((PackageActionPermission) userGroup.DisallowedPermissions);
+                disallowedUserGroupOverrides.Add((PackageUserPermission) userGroup.DisallowedPermissions);
         }
 
 
@@ -83,7 +83,7 @@ public static class DtoExtensions
         return basePermissions;
     }
 
-    public static PackageActionPermission GenerateActingPermissions(PackageDto package, string userId)
+    public static PackageUserPermission GenerateActingPermissions(PackageDto package, string userId)
     {
         var teamsWithUser = package.Teams.Where(team => team.Users.Any(member => member.Uid == userId)).ToList();
 
@@ -92,15 +92,15 @@ public static class DtoExtensions
         foreach (var team in teamsWithUser)
         {
             // Special case; this will ALWAYS be the highest denied permission.
-            if (team.DefaultAllowedPermissions.HasFlag(PackageActionPermission.Administrator))
+            if (team.DefaultAllowedPermissions.HasFlag(PackageUserPermission.Administrator))
             {
                 highestPermissionTeam = team;
                 break;
             }
 
             var grantedPermissionCount 
-                = Enum.GetValues(typeof(PackageActionPermission))
-                    .Cast<PackageActionPermission>()
+                = Enum.GetValues(typeof(PackageUserPermission))
+                    .Cast<PackageUserPermission>()
                     .Count(e => team.DefaultAllowedPermissions.HasFlag(e));
 
             if (grantedPermissionCount < highestGrantedPermissionTeam) 
@@ -117,26 +117,22 @@ public static class DtoExtensions
         
         
         if (package.Administrators.Any(x => x.Uid == userId))
-            basePermissions |= PackageActionPermission.Administrator;
+            basePermissions |= PackageUserPermission.Administrator;
         return basePermissions;
     }
 
-    public static PackageActionPermission GenerateActingPermissions(PackageActionDto packageAction, string userId)
+    public static PackageUserPermission GenerateActingPermissions(PackageActionDto packageAction, string userId)
     {
         // In this case, we do not need to process anything as the user, no matter what, is an administrator.
         if (packageAction.Package.Administrators.Any(x => x.Uid == userId))
         {
-            return PackageActionPermission.Administrator;
+            return PackageUserPermission.Administrator;
         }
-        
-        var teamsWithUser = packageAction.Package.Teams
-            .Where(team => team.Users.Any(member => member.Uid == userId))
-            .ToList();
         
         var basePermissions = GenerateActingPermissions(packageAction.Package, userId);
         
-        var grantedUserGroupOverrides = new List<PackageActionPermission>();
-        var disallowedUserGroupOverrides = new List<PackageActionPermission>();
+        var grantedUserGroupOverrides = new List<PackageUserPermission>();
+        var disallowedUserGroupOverrides = new List<PackageUserPermission>();
 
         foreach (var packageActionPermissionOverride in packageAction.UserGroupPermissionOverrides)
         {
@@ -174,7 +170,7 @@ public static class DtoExtensions
     public static bool UserInPackageAction(
         this PackageActionDto packageAction, 
         string userId, 
-        out PackageActionPermission? actingPermissions)
+        out PackageUserPermission? actingPermissions)
     {
         // out parameters cannot have default values, so this is its default value.
         actingPermissions = null;
@@ -409,5 +405,4 @@ public static class DtoExtensions
             userPermissionOverrideDto.PackageAction = null;
         return userPermissionOverrideDto;
     }
-
 }

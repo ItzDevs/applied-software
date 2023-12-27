@@ -1,4 +1,3 @@
-using System.Net;
 using AppliedSoftware.Models.Request;
 using AppliedSoftware.Workers;
 using Microsoft.AspNetCore.Authorization;

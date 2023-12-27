@@ -47,12 +47,12 @@ public class UserPermissionOverrideDto
     /// <summary>
     /// The permissions the user will have.
     /// </summary>
-    public PackageActionPermission AllowedPermissions { get; set; } = PackageActionPermission.None;
+    public PackageUserPermission AllowedPermissions { get; set; } = PackageUserPermission.None;
     
     /// <summary>
     /// The permissions the user has been explicitly denied.
     /// </summary>
-    public PackageActionPermission DisallowedPermissions { get; set; } = PackageActionPermission.None;
+    public PackageUserPermission DisallowedPermissions { get; set; } = PackageUserPermission.None;
     
     /// <summary>
     /// Created Timestamp.

@@ -9,7 +9,7 @@ public class ValidDataTests
 {
     private MockRepository _validMocks = new MockRepository(
         GlobalPermission.Administrator,
-        PackageActionPermission.Administrator,
+        PackageUserPermission.Administrator,
         mockUserInX: true);
     
     // A valid team, which also conflict for the UpdateTeam 
@@ -19,7 +19,7 @@ public class ValidDataTests
         {
             Name = "Test Team",
             Description = "This is a test team",
-            DefaultAllowedPermissions = PackageActionPermission.Administrator,
+            DefaultAllowedPermissions = PackageUserPermission.Administrator,
             BelongsToPackageId = null
         }};
     }
@@ -30,8 +30,8 @@ public class ValidDataTests
         {
             Name = "Test User Group",
             Description = "This is a test user group",
-            AllowedPermissions = PackageActionPermission.Administrator,
-            DisallowedPermissions = PackageActionPermission.UpdateAction,
+            AllowedPermissions = PackageUserPermission.Administrator,
+            DisallowedPermissions = PackageUserPermission.UpdateAction,
             TeamId = 1
         }};
     }
@@ -195,7 +195,6 @@ public class ValidDataTests
         var result = await _validMocks.GetUser(userId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData.Error?.Code} (no messages are returned).");
-        
     }
 
     
@@ -608,7 +607,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateTeamNoConflict))]
     public async Task RequiredCreateTeam(CreateTeam createTeam)
     {
-        var mock = new MockRepository(GlobalPermission.CreateTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.CreateTeam, PackageUserPermission.None);
         var result = await mock.CreateTeam(createTeam);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -617,7 +616,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetTeamsGlobalPermission()
     {
-        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageUserPermission.None);
         var result = await mock.GetTeams();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -626,7 +625,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetTeamsUserInTeam()
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetTeams();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -636,7 +635,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetTeamIdGlobalPermission(string teamId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageUserPermission.None);
         var result = await mock.GetTeam(teamId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -646,7 +645,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetTeamIdGlobalPermissionInTeam(string teamId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetTeam(teamId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -656,7 +655,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetTeamNameGlobalPermission(string teamName)
     {
-        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageUserPermission.None);
         var result = await mock.GetTeam(teamName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -666,7 +665,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetTeamNameGlobalPermissionInTeam(string teamName)
     {
-        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadTeam, PackageUserPermission.None);
         var result = await mock.GetTeam(teamName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -676,7 +675,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateTeamNoConflict))]
     public async Task RequiredUpdateTeamById(CreateTeam updateTeam)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyTeam, PackageUserPermission.None);
         const string teamId = "1";
         var result = await mock.UpdateTeam(teamId, updateTeam);
 
@@ -688,7 +687,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateTeamNoConflict))]
     public async Task RequiredUpdateTeamByName(CreateTeam updateTeam)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyTeam, PackageUserPermission.None);
         const string teamName = "one";
         var result = await mock.UpdateTeam(teamName, updateTeam);
         
@@ -700,7 +699,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredDeleteTeamById(string teamId)
     {
-        var mock = new MockRepository(GlobalPermission.DeleteTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.DeleteTeam, PackageUserPermission.None);
         var result = await mock.DeleteTeam(teamId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -710,7 +709,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredDeleteTeamByName(string teamName)
     {
-        var mock = new MockRepository(GlobalPermission.DeleteTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.DeleteTeam, PackageUserPermission.None);
         var result = await mock.DeleteTeam(teamName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -720,7 +719,7 @@ public class ValidDataTests
     [InlineData("1", "123456,123")]
     public async Task RequiredAddUsersToTeamById(string teamId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.AddUserToTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.AddUserToTeam, PackageUserPermission.None);
         var result = await mock.AddUsersToTeam(teamId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -730,7 +729,7 @@ public class ValidDataTests
     [InlineData("one", "two,one")]
     public async Task RequiredAddUsersToTeamByName(string teamId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.AddUserToTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.AddUserToTeam, PackageUserPermission.None);
         var result = await mock.AddUsersToTeam(teamId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -740,7 +739,7 @@ public class ValidDataTests
     [InlineData("1", "123456,one")]
     public async Task RequiredRemoveUsersFromTeamById(string teamId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.RemoveUserFromTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.RemoveUserFromTeam, PackageUserPermission.None);
         var result = await mock.RemoveUsersFromTeam(teamId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -750,7 +749,7 @@ public class ValidDataTests
     [InlineData("one", "123456,one")]
     public async Task RequiredRemoveUsersFromTeamByName(string teamId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.RemoveUserFromTeam, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.RemoveUserFromTeam, PackageUserPermission.None);
         var result = await mock.RemoveUsersFromTeam(teamId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -760,7 +759,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateUserGroupNoConflict))]
     public async Task RequiredCreateUserGroup(CreateUserGroup createUserGroup)
     {
-        var mock = new MockRepository(GlobalPermission.CreateUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.CreateUserGroup, PackageUserPermission.None);
         var result = await mock.CreateUserGroup(createUserGroup);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -769,7 +768,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetUserGroupsGlobalPermission()
     {
-        var mock = new MockRepository(GlobalPermission.ReadUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadUserGroup, PackageUserPermission.None);
         var result = await mock.GetUserGroups();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -778,7 +777,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetUserGroupsUser()
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetUserGroups();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -788,7 +787,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetUserGroupByIdGlobalPermission(string userGroupId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadUserGroup, PackageUserPermission.None);
         var result = await mock.GetUserGroup(userGroupId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -798,7 +797,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetUserGroupByIdUser(string userGroupId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetUserGroup(userGroupId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -808,7 +807,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetUserGroupName(string userGroupName)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetUserGroup(userGroupName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -818,7 +817,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateUserGroupNoConflict))]
     public async Task RequiredUpdateUserGroupById(CreateUserGroup updateUserGroup)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyUserGroup, PackageUserPermission.None);
         const string userGroupId = "1";
         var result = await mock.UpdateUserGroup(userGroupId, updateUserGroup);
 
@@ -829,7 +828,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreateUserGroupNoConflict))]
     public async Task RequiredUpdateUserGroupByName(CreateUserGroup updateUserGroup)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyUserGroup, PackageUserPermission.None);
         const string userGroupName = "one";
         var result = await mock.UpdateUserGroup(userGroupName, updateUserGroup);
         
@@ -841,7 +840,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredDeleteUserGroupById(string userGroupId)
     {
-        var mock = new MockRepository(GlobalPermission.DeleteUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.DeleteUserGroup, PackageUserPermission.None);
         var result = await mock.DeleteUserGroup(userGroupId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -851,7 +850,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredDeleteUserGroupByName(string userGroupName)
     {
-        var mock = new MockRepository(GlobalPermission.DeleteUserGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.DeleteUserGroup, PackageUserPermission.None);
         var result = await mock.DeleteUserGroup(userGroupName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -861,7 +860,7 @@ public class ValidDataTests
     [InlineData("1", "two,one")]
     public async Task RequiredAddUsersToUserGroupById(string userGroupId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.AddUserToGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.AddUserToGroup, PackageUserPermission.None);
         var result = await mock.AddUsersToUserGroup(userGroupId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -871,7 +870,7 @@ public class ValidDataTests
     [InlineData("one", "two,one")]
     public async Task RequiredAddUsersToUserGroupByName(string userGroupId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.AddUserToGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.AddUserToGroup, PackageUserPermission.None);
         var result = await mock.AddUsersToUserGroup(userGroupId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -881,7 +880,7 @@ public class ValidDataTests
     [InlineData("1", "two,one")]
     public async Task RequiredRemoveUsersFromUserGroupById(string userGroupId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.RemoveUserFromGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.RemoveUserFromGroup, PackageUserPermission.None);
         var result = await mock.RemoveUsersFromUserGroup(userGroupId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -891,7 +890,7 @@ public class ValidDataTests
     [InlineData("one", "two,one")]
     public async Task RequiredRemoveUsersFromUserGroupByName(string userGroupId, string userIds)
     {
-        var mock = new MockRepository(GlobalPermission.RemoveUserFromGroup, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.RemoveUserFromGroup, PackageUserPermission.None);
         var result = await mock.RemoveUsersFromUserGroup(userGroupId, userIds);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -901,7 +900,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreatePackageNoConflict))]
     public async Task RequiredCreatePackage(CreatePackage createPackage)
     {
-        var mock = new MockRepository(GlobalPermission.CreatePackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.CreatePackage, PackageUserPermission.None);
         var result = await mock.CreatePackage(createPackage);
 
         Assert.True(result.Success,
@@ -911,7 +910,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetPackagesGlobalPermission()
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackages();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -920,7 +919,7 @@ public class ValidDataTests
     [Fact]
     public async Task RequiredGetPackagesUser()
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackages();
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -930,7 +929,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetPackageByIdGlobalPermission(string packageId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackage(packageId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -940,7 +939,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetPackageByIdUser(string packageId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackage(packageId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -950,7 +949,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetPackageByNameGlobalPermission(string packageName)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackage(packageName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -960,7 +959,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetPackageByNameUser(string packageName)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackage(packageName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -970,7 +969,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreatePackageActionNoConflict))]
     public async Task RequiredCreatePackageActionById(CreatePackageAction createPackageAction)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyPackage, PackageUserPermission.None);
         const string packageId = "1";
 
         var result = await mock.CreatePackageAction(packageId, createPackageAction);
@@ -982,7 +981,7 @@ public class ValidDataTests
     [MemberData(nameof(__CreatePackageActionNoConflict))]
     public async Task RequiredCreatePackageActionByName(CreatePackageAction createPackageAction)
     {
-        var mock = new MockRepository(GlobalPermission.ModifyPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ModifyPackage, PackageUserPermission.None);
         const string packageName = "one";
 
         var result = await mock.CreatePackageAction(packageName, createPackageAction);
@@ -994,7 +993,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetPackageActionsByPackageIdGlobalPermission(string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageActions(packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1003,7 +1002,7 @@ public class ValidDataTests
     [InlineData("1")]
     public async Task RequiredGetPackageActionsByPackageIdUser(string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageActions(packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1013,7 +1012,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetPackageActionsByPackageNameGlobalPermission(string packageActionName)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageActions(packageActionName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1023,7 +1022,7 @@ public class ValidDataTests
     [InlineData("one")]
     public async Task RequiredGetPackageActionsByPackageNameUser(string packageActionName)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageActions(packageActionName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1033,7 +1032,7 @@ public class ValidDataTests
     [InlineData("1", "1")]
     public async Task RequiredGetPackageActionByIdIdGlobalPermission(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1043,7 +1042,7 @@ public class ValidDataTests
     [InlineData("1", "1")]
     public async Task RequiredGetPackageActionByIdIdUser(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1053,7 +1052,7 @@ public class ValidDataTests
     [InlineData("one", "one")]
     public async Task RequiredGetPackageActionByNameNameGlobalPermission(string packageName, string packageActionName)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageAction(packageName, packageActionName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1063,7 +1062,7 @@ public class ValidDataTests
     [InlineData("one", "one")]
     public async Task RequiredGetPackageActionByNameNameUser(string packageName, string packageActionName)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageAction(packageName, packageActionName);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1073,7 +1072,7 @@ public class ValidDataTests
     [InlineData("one", "1")]
     public async Task RequiredGetPackageActionByNameIdGlobalPermission(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1083,7 +1082,7 @@ public class ValidDataTests
     [InlineData("one", "1")]
     public async Task RequiredGetPackageActionByNameIdUser(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1094,7 +1093,7 @@ public class ValidDataTests
     [InlineData("1", "one")]
     public async Task RequiredGetPackageActionByIdNameGlobalPermission(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageActionPermission.None);
+        var mock = new MockRepository(GlobalPermission.ReadPackage, PackageUserPermission.None);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1104,7 +1103,7 @@ public class ValidDataTests
     [InlineData("1", "one")]
     public async Task RequiredGetPackageActionByIdNameUser(string packageId, string packageActionId)
     {
-        var mock = new MockRepository(GlobalPermission.None, PackageActionPermission.None, true);
+        var mock = new MockRepository(GlobalPermission.None, PackageUserPermission.None, true);
         var result = await mock.GetPackageAction(packageId, packageActionId);
         
         Assert.True(result.Success, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no messages are returned).");
@@ -1115,10 +1114,10 @@ public class ValidDataTests
     public async Task RequiredActOnPackageAction1(params ActPackageAction[] acts)
     {
         var mock = new MockRepository(GlobalPermission.ReadPackage, 
-            PackageActionPermission.DefaultRead | 
-            PackageActionPermission.AddSelf | 
-            PackageActionPermission.UpdateAlt | PackageActionPermission.UpdateSelf |
-            PackageActionPermission.DeleteAlt | PackageActionPermission.DeleteSelf, true);
+            PackageUserPermission.DefaultRead | 
+            PackageUserPermission.AddSelf | 
+            PackageUserPermission.UpdateAlt | PackageUserPermission.UpdateSelf |
+            PackageUserPermission.DeleteAlt | PackageUserPermission.DeleteSelf, true);
         const string packageId = "1";
         const string packageActionId = "1";
 
@@ -1135,10 +1134,10 @@ public class ValidDataTests
     public async Task RequiredActOnPackageAction2(params ActPackageAction[] acts)
     {
         var mock = new MockRepository(GlobalPermission.ReadPackage, 
-            PackageActionPermission.DefaultRead | 
-            PackageActionPermission.AddSelf | 
-            PackageActionPermission.UpdateAlt | PackageActionPermission.UpdateSelf |
-            PackageActionPermission.DeleteAlt | PackageActionPermission.DeleteSelf, true);
+            PackageUserPermission.DefaultRead | 
+            PackageUserPermission.AddSelf | 
+            PackageUserPermission.UpdateAlt | PackageUserPermission.UpdateSelf |
+            PackageUserPermission.DeleteAlt | PackageUserPermission.DeleteSelf, true);
         const string packageId = "one";
         const string packageActionId = "1";
 
@@ -1156,10 +1155,10 @@ public class ValidDataTests
     public async Task RequiredActOnPackageAction5(params ActPackageAction[] acts)
     {
         var mock = new MockRepository(GlobalPermission.ReadPackage, 
-            PackageActionPermission.DefaultRead | 
-            PackageActionPermission.AddSelf | 
-            PackageActionPermission.UpdateAlt | PackageActionPermission.UpdateSelf |
-            PackageActionPermission.DeleteAlt | PackageActionPermission.DeleteSelf, true);
+            PackageUserPermission.DefaultRead | 
+            PackageUserPermission.AddSelf | 
+            PackageUserPermission.UpdateAlt | PackageUserPermission.UpdateSelf |
+            PackageUserPermission.DeleteAlt | PackageUserPermission.DeleteSelf, true);
         const string packageId = "1";
         const string packageActionId = "email";
 
