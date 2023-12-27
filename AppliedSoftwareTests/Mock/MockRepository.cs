@@ -319,7 +319,7 @@ public class MockRepository(
                 error: new(eErrorCode.NotFound, []));
         
         if (!(globalPermission.HasFlag(GlobalPermission.Administrator) ||
-              globalPermission.HasFlag(GlobalPermission.ReadUserGroup)))
+              globalPermission.HasFlag(GlobalPermission.ModifyUserGroup)))
             return new(HttpStatusCode.Forbidden,
                 error: CodeMessageResponse.ForbiddenAction);
         
@@ -433,7 +433,7 @@ public class MockRepository(
                 error: new(eErrorCode.NotFound, []));
         
         if (!(globalPermission.HasFlag(GlobalPermission.Administrator) ||
-              globalPermission.HasFlag(GlobalPermission.AddUserToGroup)))
+              globalPermission.HasFlag(GlobalPermission.RemoveUserFromGroup)))
             return new(HttpStatusCode.Forbidden,
                 error: CodeMessageResponse.ForbiddenAction);
         
