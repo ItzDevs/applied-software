@@ -30,6 +30,6 @@ public class InvalidTests
         var result = await mock.UpdateTeam(teamName, updateTeam);
         
         Assert.True(result.StatusCode == HttpStatusCode.BadRequest, $"{result.StatusCode} - Error: {result.ResponseData.Error?.Code} (no messages are returned).");
-        Assert.True(((CodeMessageResponse) result.ResponseData!.Error!).Code == (int)eErrorCode.Conflict, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no)");
+        Assert.True(((CodeMessageResponse) result.ResponseData.Error!).Code == (int)eErrorCode.Conflict, $"{result.StatusCode} - Error: {result.ResponseData?.Error?.Code} (no)");
     }
 }

@@ -1,18 +1,21 @@
 version: '3'
+name: "hk-development"
 
 services:
   api:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ./Service
+      args:
+        DOCKER_USER_UID: ${DOCKER_USER_UID:?Missing DOCKER_USER_UID}
+        DOCKER_USER_GID: ${DOCKER_USER_GID:?Missing DOCKER_USER_GID}
     ports:
       - ${HTTP_API_PORT:?Missing HTTP_API_PORT}:8080
     depends_on:
       - pg
     restart: on-failure
-#    volumes:
-#      - ./docker/development/CDN:/CDN
-#      - ./docker/development/api:/settings
+    volumes:
+      - ./docker/development/CDN:/CDN
+      - ./docker/development/settings:/settings
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - POSTGRES_HOST=pg
@@ -20,7 +23,8 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:?Missing POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD}
       - POSTGRES_INCLUDE_ERROR_DETAILS=${POSTGRES_INCLUDE_ERROR_DETAILS:?Missing POSTGRES_INCLUDE_ERROR_DETAILS}
-      - GOOGLE_APPLICATION_CREDENTIALS=firebase-admin.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/settings/firebase-admin.json
+      - CDN_PATH=/CDN
 
   pg:
     image: postgres:16.1-alpine

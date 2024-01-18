@@ -18,7 +18,7 @@ namespace AppliedSoftwareTests.Mock;
 /// pretend that the user has permission to view from being a member.</param>
 public class MockRepository(
     // These permissions are passed in so that a lot of the time checking the user id is not needed; this gives more control
-    // over the tests. hayley
+    // over the tests.
     GlobalPermission globalPermission,
     PackageUserPermission packageUserPermission,
     bool mockUserInX = false)
