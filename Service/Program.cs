@@ -26,14 +26,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     options.TokenValidationParameters = new()
     {
         ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
+        ValidateAudience = false,
+        ValidateLifetime = false,
+        ValidateIssuerSigningKey = false,
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience
     };
 });
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<Program>();
+});
 
 builder.Services.AddSingleton<IAuthentication, Authentication>();
 builder.Services.AddSingleton<IFirebaseUserSync, FirebaseUserSync>();

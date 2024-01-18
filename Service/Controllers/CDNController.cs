@@ -1,10 +1,13 @@
 using AppliedSoftware.Workers;
+using AppliedSoftware.Workers.Handlers;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppliedSoftware.Controllers;
 
 [Route("api/v1/cdn")]
 public class CdnController(
+    IMediator mediator,
     IRepository repository) : ControllerBase
 {
     // In an ideal world, this would be separated, rather than using the service to return the bytes, 
@@ -14,7 +17,8 @@ public class CdnController(
     [HttpGet("download/attachment/{id:long}")]
     public async Task<IActionResult> DownloadAttachment(long id)
     {
-        var file = await repository.DownloadAttachment(id);
+        var file = await mediator.Send(new GetFileByIdQuery { Id = id });
+        
         if (!file.Success) 
             return BadRequest(file.ResponseData.Error);
         file.ResponseData.Body.Item1.Position = 0;
