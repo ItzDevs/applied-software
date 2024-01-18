@@ -39,7 +39,6 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<Program>();
 });
-
 builder.Services.AddSingleton<IAuthentication, Authentication>();
 builder.Services.AddSingleton<IFirebaseUserSync, FirebaseUserSync>();
 builder.Services.AddScoped<IRepository, Repository>();

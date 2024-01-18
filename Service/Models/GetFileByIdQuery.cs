@@ -1,7 +1,7 @@
 using AppliedSoftware.Models.Response;
 using MediatR;
 
-namespace AppliedSoftware.Workers.Handlers;
+namespace AppliedSoftware.Models;
 
 public class GetFileByIdQuery : IRequest<StatusContainer<(Stream, string, string)>>
 {

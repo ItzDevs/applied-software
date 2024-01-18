@@ -1,3 +1,4 @@
+using AppliedSoftware.Models;
 using AppliedSoftware.Models.Response;
 using MediatR;
 

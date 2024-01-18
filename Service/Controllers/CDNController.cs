@@ -1,3 +1,4 @@
+using AppliedSoftware.Models;
 using AppliedSoftware.Workers;
 using AppliedSoftware.Workers.Handlers;
 using MediatR;
