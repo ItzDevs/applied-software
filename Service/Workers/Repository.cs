@@ -52,7 +52,9 @@ public class Repository(
         var user = await context.Users
           .AsNoTracking()
               .Include(x => x.Teams)
-              .Include(x => x.PackageAdministrator)
+                .ThenInclude(x => x.Package)
+                .ThenInclude(x => x.Actions)
+                .ThenInclude(x => x.UserGroupPermissionOverrides)
               .Include(x => x.UserGroups)
               .Include(x => x.UserPermissionOverrides)
           .FirstOrDefaultAsync(x => x.Uid == userId && 

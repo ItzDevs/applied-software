@@ -18,6 +18,7 @@ public class EmailPackageActionResponse : EmailPackageActionDto
         UpdatedAtUtc = dto.UpdatedAtUtc;
         Attachments = dto.Attachments.Select(x => new EmailAttachmentResponse(x)).ToList();
     }
+    // In the base class a property called Attachment is defined, the `new` keyword shadows this and overrides it.
     public new IEnumerable<EmailAttachmentResponse> Attachments { get; set; }
 }
 
